@@ -1,0 +1,107 @@
+// Money is always integer cents; commissions are never stored, they're computed from these rows.
+// Calendar dates use @db.Date and come back as Dates at UTC midnight (see server/serialize.ts).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../server/generated/prisma"
+  runtime      = "bun"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum VehicleType {
+  new
+  used
+
+  @@map("vehicle_type")
+}
+
+enum AcquisitionSource {
+  off_street
+  service_drive
+
+  @@map("acquisition_source")
+}
+
+/// The app's profile for a Neon Auth account. Email, password and sessions live in Neon Auth
+/// (the `neon_auth` schema, managed by Neon); this row holds what the pay plan needs.
+model User {
+  id            Int            @id @default(autoincrement())
+  /// `neon_auth.user.id`
+  authUserId    String         @unique @map("auth_user_id")
+  name          String
+  hireDate      DateTime       @map("hire_date") @db.Date
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  deals         Deal[]
+  acquisitions  Acquisition[]
+  spiffs        Spiff[]
+  monthSettings MonthSetting[]
+
+  @@map("users")
+}
+
+model Deal {
+  id                       Int         @id @default(autoincrement())
+  userId                   Int         @map("user_id")
+  soldOn                   DateTime    @map("sold_on") @db.Date
+  vehicleType              VehicleType @map("vehicle_type")
+  grossCents               Int         @map("gross_cents")
+  /// Required by the API (shared/schemas.ts); the "" default only covers deals logged before it was.
+  customerName             String      @default("") @map("customer_name")
+  /// As the salesperson writes it, e.g. "2026 Tucson SEL".
+  vehicle                  String      @default("")
+  stockNumber              String      @default("") @map("stock_number")
+  /// Sold at an affiliated store: counts toward volume, paid on that store's plan.
+  affiliateStore           Boolean     @default(false) @map("affiliate_store")
+  affiliateCommissionCents Int?        @map("affiliate_commission_cents")
+  notes                    String      @default("")
+  createdAt                DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  user                     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, soldOn])
+  @@map("deals")
+}
+
+model Acquisition {
+  id           Int               @id @default(autoincrement())
+  userId       Int               @map("user_id")
+  acquiredOn   DateTime          @map("acquired_on") @db.Date
+  source       AcquisitionSource
+  /// Required by the API, like a deal's; the "" default only covers rows logged before it was.
+  customerName String            @default("") @map("customer_name")
+  vehicle      String            @default("")
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, acquiredOn])
+  @@map("acquisitions")
+}
+
+model Spiff {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  paidOn      DateTime @map("paid_on") @db.Date
+  amountCents Int      @map("amount_cents")
+  note        String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, paidOn])
+  @@map("spiffs")
+}
+
+model MonthSetting {
+  userId            Int     @map("user_id")
+  /// "YYYY-MM"
+  month             String
+  dpbQualified      Boolean @default(false) @map("dpb_qualified")
+  dpbPerCarCents    Int     @default(0) @map("dpb_per_car_cents")
+  drawOverrideCents Int?    @map("draw_override_cents")
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, month])
+  @@map("month_settings")
+}
