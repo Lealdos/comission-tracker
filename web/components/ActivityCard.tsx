@@ -13,12 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.tsx";
 const longDate = { month: "long", day: "numeric" } as const;
 
 /** Everything logged this month, one tab per kind of entry, each with its total. */
-export function ActivityCard({ data, defaultDate, editingId, onEdit }: { data: MonthData; defaultDate: string; editingId: number | null; onEdit: (deal: Deal) => void }) {
+export function ActivityCard({ data, defaultDate, editingId, onEdit, className }: { data: MonthData; defaultDate: string; editingId: number | null; onEdit: (deal: Deal) => void; className?: string }) {
   const s = data.summary;
   return (
-    <Card>
-      <CardContent className="@container">
-        <Tabs defaultValue="deals" className="gap-4">
+    <Card className={className}>
+      {/* On desktop the card stretches to the left column's height; the flex chain lets the deals list fill it. */}
+      <CardContent className="@container lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+        <Tabs defaultValue="deals" className="gap-4 lg:min-h-0 lg:flex-1">
           <TabsList className="w-full">
             <TabsTrigger value="deals">
               Deals <Count n={data.deals.length} />
@@ -31,7 +32,7 @@ export function ActivityCard({ data, defaultDate, editingId, onEdit }: { data: M
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="deals">
+          <TabsContent value="deals" className="lg:flex lg:min-h-0 lg:flex-col">
             <Total label="Commission this month" cents={s.commissionCents} />
             <DealsTable deals={data.deals} lines={s.deals} editingId={editingId} onEdit={onEdit} />
           </TabsContent>
