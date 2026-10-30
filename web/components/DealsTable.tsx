@@ -9,7 +9,8 @@ import { Button } from "./ui/button.tsx";
 
 // Phones get compact rows (deal and commission, customer, then date, gross and edit); from `sm` up it's a normal table.
 const cell = "sm:border-b sm:py-3";
-// On desktop the list scrolls inside the card under a header that stays put; phones and tablets keep the page scroll.
+// On desktop the list scrolls inside the card under a header that stays put, filling the height its column leaves
+// (at least 20rem); phones and tablets keep the page scroll.
 const head = "border-b py-2 lg:sticky lg:top-0 lg:z-10 lg:bg-card";
 
 export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[]; lines: DealLine[]; editingId: number | null; onEdit: (deal: Deal) => void }) {
@@ -19,7 +20,7 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
   if (deals.length === 0) return <EmptyNote>No deals logged this month yet. Log one with the New or Pre-owned tab.</EmptyNote>;
 
   return (
-    <div className="lg:max-h-[32rem] lg:overflow-y-auto lg:scroll-shade-b">
+    <div className="lg:min-h-80 lg:flex-1 lg:basis-0 lg:overflow-y-auto lg:scroll-shade-b">
       {/* Separate borders so the header's bottom line travels with it when it sticks. */}
       <table className="w-full text-sm lg:border-separate lg:border-spacing-0">
         <thead className="max-sm:sr-only">

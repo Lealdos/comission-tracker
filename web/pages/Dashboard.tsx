@@ -92,50 +92,57 @@ export function Dashboard() {
                 <>
                     <CheckSign summary={data.summary} />
 
-                    <div className='grid items-start gap-5 sm:gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]'>
-                        <LogPanel
-                            key={`${month}:${editing?.id ?? 'new'}`}
-                            defaultDate={defaultDate}
-                            hireDate={user.hireDate}
-                            dpb={{
-                                qualified: data.settings.dpbQualified,
-                                perCarCents: data.settings.dpbPerCarCents,
-                            }}
-                            acquisitionBonusCents={
-                                data.summary.acquisitions.perCarCents
-                            }
-                            editing={editing}
-                            onDone={() => setEditing(null)}
-                        />
-                        <div className='grid min-w-0 gap-5 sm:gap-6'>
+                    {/* Desktop: what you enter on the left (log, month settings), what it adds up to on the right (volume, activity),
+                        both columns ending level, then the breakdown across the full width. On phones the column wrappers dissolve
+                        (`contents`) into one list, with the month settings moved to the end. */}
+                    <div className='flex flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]'>
+                        <div className='contents lg:flex lg:flex-col lg:gap-6'>
+                            <LogPanel
+                                key={`${month}:${editing?.id ?? 'new'}`}
+                                defaultDate={defaultDate}
+                                hireDate={user.hireDate}
+                                dpb={{
+                                    qualified: data.settings.dpbQualified,
+                                    perCarCents: data.settings.dpbPerCarCents,
+                                }}
+                                acquisitionBonusCents={
+                                    data.summary.acquisitions.perCarCents
+                                }
+                                editing={editing}
+                                onDone={() => setEditing(null)}
+                            />
+                            <MonthSettings
+                                key={`m:${month}`}
+                                className='order-last lg:flex-1'
+                                month={month}
+                                settings={data.settings}
+                                newDeals={
+                                    data.summary.deals.filter(
+                                        (d) =>
+                                            d.vehicleType === 'new' &&
+                                            !d.affiliateStore,
+                                    ).length
+                                }
+                                scheduledDrawCents={
+                                    data.summary.draws.scheduledCents
+                                }
+                                drawWeeks={data.summary.draws.weeks.length}
+                            />
+                        </div>
+                        <div className='contents lg:flex lg:min-w-0 lg:flex-col lg:gap-6'>
                             <VolumeProgress summary={data.summary} />
                             <ActivityCard
                                 key={month}
+                                className='lg:flex-1'
                                 data={data}
                                 defaultDate={defaultDate}
                                 editingId={editing?.id ?? null}
                                 onEdit={edit}
                             />
                         </div>
-                    </div>
-
-                    <div className='grid items-start gap-5 sm:gap-6 md:grid-cols-2'>
-                        <Breakdown summary={data.summary} />
-                        <MonthSettings
-                            key={`m:${month}`}
-                            month={month}
-                            settings={data.settings}
-                            newDeals={
-                                data.summary.deals.filter(
-                                    (d) =>
-                                        d.vehicleType === 'new' &&
-                                        !d.affiliateStore,
-                                ).length
-                            }
-                            scheduledDrawCents={
-                                data.summary.draws.scheduledCents
-                            }
-                            drawWeeks={data.summary.draws.weeks.length}
+                        <Breakdown
+                            summary={data.summary}
+                            className='lg:col-span-2'
                         />
                     </div>
                 </>
@@ -144,15 +151,16 @@ export function Dashboard() {
     );
 }
 
-/** The month's answer, set like a highway guide sign: what the check on the 10th will be, and the subtraction that gets there. */
+/** The month's answer, set like a highway guide sign: earnings and draws on the left, the check on the 10th they add up to on the right. */
 function CheckSign({ summary: s }: { summary: MonthSummary }) {
     return (
         <section
             aria-label='Commission check'
             className='rounded-xl bg-sign p-1 text-white shadow-sm'
         >
-            <div className='flex flex-col gap-3 rounded-[0.55rem] border-2 border-white/90 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-5'>
-                <div>
+            {/* The check comes first in the markup, so phones show it on top and screen readers read it first; from sm up it moves to the right. */}
+            <div className='flex flex-col gap-3 rounded-[0.55rem] border-2 border-white/90 px-4 py-3 sm:flex-row-reverse sm:items-end sm:justify-between sm:gap-6 sm:px-5'>
+                <div className='sm:text-right'>
                     <p className='text-sm font-medium'>
                         Check on{' '}
                         {formatDate(s.payDate, {
@@ -164,13 +172,15 @@ function CheckSign({ summary: s }: { summary: MonthSummary }) {
                         {formatCents(s.checkCents)}
                     </p>
                 </div>
-                <dl className='grid grid-cols-[1fr_auto] gap-x-6 gap-y-0.5 border-t border-white/30 pt-2 text-sm sm:border-0 sm:pt-0'>
-                    <dt>Earned this month</dt>
-                    <dd className='text-right font-display text-base leading-snug font-medium tabular-nums'>
+                {/* Label on top, amount below, one column per figure. Filling column by column puts both labels in one row
+                    and both amounts in the next, so the amounts line up even when a label wraps on a phone. */}
+                <dl className='grid grid-flow-col grid-cols-2 grid-rows-[auto_auto] gap-x-6 gap-y-1 border-t border-white/30 pt-2 text-sm sm:grid-cols-[auto_auto] sm:gap-x-8 sm:border-0 sm:pt-0'>
+                    <dt className='self-end'>Earned this month before draws</dt>
+                    <dd className='font-display text-xl leading-tight font-medium tabular-nums'>
                         {formatCents(s.earningsCents)}
                     </dd>
-                    <dt>Draws already paid</dt>
-                    <dd className='text-right font-display text-base leading-snug font-medium tabular-nums'>
+                    <dt className='self-end'>Draws already paid</dt>
+                    <dd className='font-display text-xl leading-tight font-medium tabular-nums'>
                         − {formatCents(s.draws.totalCents)}
                     </dd>
                 </dl>
@@ -188,10 +198,13 @@ function DashboardSkeleton() {
         >
             <Skeleton className='h-36 rounded-xl sm:h-24' />
             <div className='grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]'>
-                <Skeleton className='h-96 rounded-xl' />
                 <div className='grid gap-5 sm:gap-6'>
-                    <Skeleton className='h-48 rounded-xl' />
+                    <Skeleton className='h-[40rem] rounded-xl' />
+                    <Skeleton className='h-60 rounded-xl max-lg:hidden' />
+                </div>
+                <div className='grid gap-5 sm:gap-6'>
                     <Skeleton className='h-72 rounded-xl' />
+                    <Skeleton className='h-[38rem] rounded-xl' />
                 </div>
             </div>
         </div>
