@@ -1,0 +1,7 @@
+{
+  // Browser code is checked on its own: @neon/auth's typings declare a global `Bun` that would
+  // shadow bun-types in server code.
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["vite/client"] },
+  "include": ["."]
+}
