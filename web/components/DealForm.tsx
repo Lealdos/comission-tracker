@@ -21,6 +21,7 @@ export function LogPanel({
   acquisitionBonusCents,
   editing,
   onDone,
+  className = "",
 }: {
   defaultDate: string;
   hireDate: string;
@@ -28,13 +29,14 @@ export function LogPanel({
   acquisitionBonusCents: number;
   editing: Deal | null;
   onDone: () => void;
+  className?: string;
 }) {
   // Survives saves, so a batch of the same kind needs no re-picking; a new key (month, edit) starts over.
   const [kind, setKind] = useState<Kind>(editing?.vehicleType ?? "new");
   const title = editing ? "Edit deal" : kind === "bought" ? "Log a car bought" : "Log a deal";
 
   return (
-    <Card id="deal-form" className="scroll-mt-4">
+    <Card id="deal-form" className={`scroll-mt-4 ${className}`}>
       <CardHeader>
         <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
