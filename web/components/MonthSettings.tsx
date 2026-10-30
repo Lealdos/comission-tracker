@@ -12,7 +12,21 @@ import { Checkbox } from "./ui/checkbox.tsx";
 const toInput = (cents: number | null) => (cents === null || cents === 0 ? "" : (cents / 100).toFixed(2));
 
 /** Dealer Performance Bonus and actual draws: the two month-level inputs the pay plan depends on. */
-export function MonthSettings({ month, settings, newDeals, scheduledDrawCents, drawWeeks }: { month: string; settings: MonthSettingsBody; newDeals: number; scheduledDrawCents: number; drawWeeks: number }) {
+export function MonthSettings({
+  month,
+  settings,
+  newDeals,
+  scheduledDrawCents,
+  drawWeeks,
+  className,
+}: {
+  month: string;
+  settings: MonthSettingsBody;
+  newDeals: number;
+  scheduledDrawCents: number;
+  drawWeeks: number;
+  className?: string;
+}) {
   const [qualified, setQualified] = useState(settings.dpbQualified);
   const [perCar, setPerCar] = useState(toInput(settings.dpbPerCarCents));
   const [drawOverride, setDrawOverride] = useState(toInput(settings.drawOverrideCents));
@@ -24,12 +38,12 @@ export function MonthSettings({ month, settings, newDeals, scheduledDrawCents, d
   const dirty = qualified !== settings.dpbQualified || perCarCents !== settings.dpbPerCarCents || drawCents !== settings.drawOverrideCents;
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <CardTitle className="text-lg">This month's settings</CardTitle>
         <CardDescription>Dealer Performance Bonus and the draws you were actually paid.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-5">
+      <CardContent className="grid flex-1 content-start gap-5">
         <div className="grid gap-3">
           <label className="flex items-start gap-3 text-sm">
             <Checkbox className="mt-0.5" checked={qualified} onCheckedChange={(v) => setQualified(v === true)} />
