@@ -1,0 +1,126 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn components use `dark:`; here it follows the data-theme that web/theme.ts sets on <html>. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Figtree for the interface; Barlow Semi Condensed, drawn from road signage, only for the check sign and key figures. */
+@theme {
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Semi Condensed", "Figtree", ui-sans-serif, system-ui, sans-serif;
+
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+}
+
+/* Semantic colors, named the shadcn way, plus the app's own (sign, positive, warning). A theme is just a set of values below. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sign: var(--sign);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Light is the default; web/theme.ts (and the inline script in index.html) sets data-theme on <html>. */
+:root {
+  color-scheme: light;
+  --radius: 0.75rem;
+  --background: #f3f5f4;
+  --foreground: #16201b;
+  --card: #ffffff;
+  --card-foreground: #16201b;
+  --popover: #ffffff;
+  --popover-foreground: #16201b;
+  --primary: #0a7352;
+  --primary-foreground: #ffffff;
+  --secondary: #e9eeeb;
+  --secondary-foreground: #16201b;
+  --muted: #eef2f0;
+  --muted-foreground: #58655e;
+  --accent: #e8efeb;
+  --accent-foreground: #16201b;
+  --destructive: #c0341d;
+  --border: #dfe5e2;
+  /* Field and checkbox outlines: 3:1 against the card, so fields stay findable on a phone outdoors. */
+  --input: #899690;
+  --ring: #0a7352;
+  --sign: #006b4e;
+  --positive: #00694c;
+  --positive-soft: #e1f1e9;
+  --warning: #7a5000;
+  --warning-soft: #fcf1d3;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0e1311;
+  --foreground: #e3eae6;
+  --card: #151c19;
+  --card-foreground: #e3eae6;
+  --popover: #19211d;
+  --popover-foreground: #e3eae6;
+  --primary: #0b7655;
+  --primary-foreground: #ffffff;
+  --secondary: #212a26;
+  --secondary-foreground: #e3eae6;
+  --muted: #1d2622;
+  --muted-foreground: #9ba8a1;
+  --accent: #232d29;
+  --accent-foreground: #e3eae6;
+  --destructive: #f07f74;
+  --border: #26312c;
+  --input: #64726b;
+  --ring: #4fbf95;
+  --sign: #0b6a4d;
+  --positive: #62cfa3;
+  --positive-soft: #15302a;
+  --warning: #edc35f;
+  --warning-soft: #322810;
+}
+
+/* A soft shade along the bottom of a scroll area while more is below (macOS hides scrollbars until you scroll).
+   The card-colored cover scrolls with the content and hides the shade once the end is reached. */
+@utility scroll-shade-b {
+  background:
+    linear-gradient(transparent, var(--card) 70%) bottom / 100% 2.5rem no-repeat local,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--foreground) 16%, transparent), transparent) bottom / 100% 0.75rem no-repeat scroll;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+
+  ::selection {
+    background: var(--positive-soft);
+    color: var(--foreground);
+  }
+}
