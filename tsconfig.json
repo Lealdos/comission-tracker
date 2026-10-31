@@ -15,5 +15,5 @@
     "paths": { "@/*": ["./web/*"] },
     "types": ["bun", "vite/client"]
   },
-  "include": ["shared", "server", "*.ts"]
+  "include": ["shared", "server", "api", "*.ts"]
 }

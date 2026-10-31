@@ -1,0 +1,12 @@
+# Files `vercel deploy` must never upload. Vercel builds from source (bun install + bun run build),
+# so local builds, dependencies and the generated Prisma client stay behind too.
+.env
+.env.*
+!.env.example
+.neon
+.claude
+node_modules
+dist
+server/generated
+*.log
+.DS_Store

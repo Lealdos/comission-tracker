@@ -75,7 +75,8 @@ Create an account from the sign-up screen. For sample data, `bun run db:seed` cr
 
 ```
 shared/        Pay plan data and rules, date helpers, request schemas (used by both server and web)
-server/        Hono API, the Neon Auth proxy, Prisma client and seed
+server/        Hono API (app.ts), its Bun server (index.ts), the Neon Auth proxy, Prisma client and seed
+api/           Vercel Function entry (server.ts) that runs the same API
 prisma/        Database schema and migrations
 web/           React app
   pages/       Dashboard, profile, sign-in and sign-up
@@ -84,7 +85,21 @@ web/           React app
 
 ## Deployment
 
-The production build is one Bun process that serves the API and the web app on `PORT`. On any host that runs a long-lived process (Railway, Render, Fly.io and similar), configure:
+Whatever the host, the server needs `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_COOKIE_SECRET` (generate a fresh secret for production with `openssl rand -base64 32`). After the first deploy, add the production domain to Neon Auth's trusted domains: only `localhost` is trusted by default, so sign-in fails anywhere else until you do. Don't run `bun run db:seed` against the Neon project a deployment uses (see the demo account note below).
+
+### Vercel
+
+The repo is ready for Vercel, including the free Hobby plan. `vercel.json` builds the web app with Vite into static files and runs the API as one Vercel Function (`api/server.ts`) on Vercel's Bun runtime, which is in beta. Production builds apply pending migrations before building; preview builds don't.
+
+1. Import the GitHub repository in Vercel. The settings come from `vercel.json`, so leave the defaults.
+2. Add the four environment variables above for the Production environment.
+3. Deploy, then add the domain (for example `https://your-app.vercel.app`) to Neon Auth's trusted domains.
+
+Preview deployments get their own URLs, which Neon Auth doesn't trust, so sign-in works only on the production domain unless you add them too.
+
+### Long-running hosts
+
+Railway, Render, Fly.io and similar hosts can run the app as one Bun process that serves the API and the web app on `PORT`:
 
 | Step | Command |
 | --- | --- |
@@ -92,11 +107,7 @@ The production build is one Bun process that serves the API and the web app on `
 | Before each release (pre-deploy) | `bun run db:deploy` |
 | Start | `bun run start` |
 
-1. Set `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_COOKIE_SECRET` on the host (most hosts set `PORT` themselves). The server won't start without them; the build doesn't need them.
-2. Add the production domain to Neon Auth's trusted domains. Only `localhost` is trusted by default, so sign-in fails on any other domain until you do.
-3. Don't run `bun run db:seed` against the Neon project the deployment uses (see the demo account note below).
-
-Serverless platforms such as Vercel need changes first: the app has to be exported instead of started with `Bun.serve`, the built web app has to be served as static files, and the Bun runtime has to be enabled.
+Most of these hosts set `PORT` themselves. The build doesn't need the database variables; the server won't start without them.
 
 ## Security
 
