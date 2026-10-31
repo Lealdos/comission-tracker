@@ -13,7 +13,10 @@
     "noUncheckedIndexedAccess": true,
     // shadcn/ui components import each other through "@/"; app code uses relative paths.
     "paths": { "@/*": ["./web/*"] },
-    "types": ["bun", "vite/client"]
+    // Ambient types for shared/, server/ and api/ (web/tsconfig.json lists its own). typeRoots is resolved from this
+    // file, so `types` still resolves when Vercel compiles the function through a temporary tsconfig in /tmp that extends this one.
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["bun"]
   },
   "include": ["shared", "server", "api", "*.ts"]
 }

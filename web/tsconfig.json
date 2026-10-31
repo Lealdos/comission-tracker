@@ -2,6 +2,8 @@
   // Browser code is checked on its own: @neon/auth's typings declare a global `Bun` that would
   // shadow bun-types in server code.
   "extends": "../tsconfig.json",
-  "compilerOptions": { "types": ["vite/client"] },
+  // The root's typeRoots only covers @types; vite/client is a file inside the vite package, which a custom
+  // type root resolves like a module path.
+  "compilerOptions": { "typeRoots": ["../node_modules/@types", "../node_modules"], "types": ["vite/client"] },
   "include": ["."]
 }
