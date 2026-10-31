@@ -1,7 +1,11 @@
 {
   "name": "commission-tracker",
   "private": true,
+  "license": "MIT",
   "type": "module",
+  "engines": {
+    "bun": ">=1.4"
+  },
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"bun run dev:server\" \"bun run dev:web\"",
     "dev:server": "bun --watch server/index.ts",
@@ -49,5 +53,8 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
+  },
+  "overrides": {
+    "lodash": "4.18.1"
   }
 }
