@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router";
 import { today } from "../../shared/dates.ts";
 import { api, type Me } from "../api.ts";
-import { signIn, signOut, signUp } from "../auth.ts";
+import { preloadAuth, signIn, signOut, signUp } from "../auth.ts";
 import { SignMark } from "../App.tsx";
 import { ErrorText, Field } from "../components/common.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -11,6 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card.
 import { Input } from "../components/ui/input.tsx";
 
 function AuthShell({ title, children, footer }: { title: string; children: ReactNode; footer: ReactNode }) {
+  // Every screen in this shell signs in, up or out; fetch the auth client while the form is being filled in.
+  useEffect(preloadAuth, []);
+
   return (
     <div className="flex min-h-screen items-start justify-center px-4 py-10 sm:items-center">
       <div className="w-full max-w-sm">
