@@ -9,6 +9,7 @@ Each salesperson signs in with their own account and only ever sees their own nu
 - **Log a deal** as new or pre-owned with the customer, vehicle, stock number, date and gross profit. The form shows what the deal pays before you save it.
 - **Log a car bought** from an off-street or service-drive customer ($200 each), and **spiffs** paid to you.
 - **The month at a glance:** the check due on the 10th, progress toward the next volume milestone, every deal with its commission, and a line-by-line breakdown you can compare with the dealership's commission sheet.
+- **Any month:** step with the arrows, or open the calendar next to the month's name to jump to any month and year.
 - **Month settings** for the Dealer Performance Bonus and the draws you were actually paid.
 - **Built for the phone:** large touch targets on phones and tablets, compact controls with a mouse, and light and dark themes.
 

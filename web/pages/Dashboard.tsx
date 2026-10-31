@@ -15,6 +15,7 @@ import { ActivityCard } from '../components/ActivityCard.tsx';
 import { Breakdown } from '../components/Breakdown.tsx';
 import { ErrorText, formatDate, formatMonth } from '../components/common.tsx';
 import { LogPanel } from '../components/DealForm.tsx';
+import { MonthPicker } from '../components/MonthPicker.tsx';
 import { MonthSettings } from '../components/MonthSettings.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
@@ -51,10 +52,20 @@ export function Dashboard() {
     return (
         <div className='space-y-5 sm:space-y-6'>
             <div className='flex items-center justify-between gap-3'>
-                <div>
-                    <h1 className='font-display text-3xl leading-tight font-semibold'>
-                        {formatMonth(month)}
-                    </h1>
+                <div className='min-w-0'>
+                    {/* The calendar sits right after the month name: it jumps to any month, the arrows step one at a time. */}
+                    {/* On touch the icon overlaps its own padding to sit close to the name; under 380px the name drops to 28px,
+                        so "September 2026", the picker and the arrows still fit one row on a 375px phone. */}
+                    <div className='flex items-center'>
+                        <h1 className='font-display text-3xl leading-tight font-semibold max-[380px]:text-[1.75rem]'>
+                            {formatMonth(month)}
+                        </h1>
+                        <MonthPicker
+                            month={month}
+                            onSelect={goTo}
+                            className='-ml-1.5 pointer-fine:ml-0'
+                        />
+                    </div>
                     {month !== monthOf(today()) && (
                         <button
                             type='button'
