@@ -33,44 +33,54 @@ All pay rules live in `shared/`: `payplan.ts` holds the plan as data, versioned 
 
 ## Getting started
 
-You'll need [Bun](https://bun.com) 1.4 or later, a [Neon](https://neon.com) account and the Neon CLI. The database lives in Neon only; there is no local Postgres.
+You'll need [Bun](https://bun.com) 1.4 or later, [OrbStack](https://orbstack.dev) or Docker Desktop for the local database, a [Neon](https://neon.com) account and the Neon CLI.
+
+Two environments, two env files:
+
+| | Data | Sign-in (Neon Auth) | Env file |
+| --- | --- | --- | --- |
+| Local development | Postgres in Docker (`compose.yaml`) | The `development` Neon branch | `.env.localdev` |
+| Production | Neon, branch `production` | Neon, branch `production` | `.env` locally, project settings on Vercel |
+
+### Local development
 
 ```sh
 bun install                 # installs dependencies and generates the Prisma client
 neon login
-neon link                   # pick or create the Neon project for this folder
-neon deploy                 # sets up Postgres and Neon Auth from neon.ts, and writes their variables to .env
+neon link                   # pick the Neon project for this folder
+cp .env.localdev.example .env.localdev
+neon env pull --branch development --file .env.localdev --env NEON_AUTH_BASE_URL
 ```
 
-Then add the two values Neon doesn't provide to `.env` (see `.env.example` for the full list):
+Set `NEON_AUTH_COOKIE_SECRET` in `.env.localdev` to any random value (`openssl rand -base64 32`). The `development` Neon branch only does sign-in for local work: it's a schema-only branch with Neon Auth enabled, so it holds the demo login and any accounts you create while developing, never production's.
 
 ```sh
-echo "NEON_AUTH_COOKIE_SECRET=$(openssl rand -base64 32)" >> .env
-echo "PORT=3000" >> .env
-```
-
-Apply the migrations and start the app:
-
-```sh
-bun run db:deploy           # creates the tables
 bun run dev                 # API on :3000, web app on http://localhost:5173
 ```
 
-Create an account from the sign-up screen. For sample data, `bun run db:seed` creates a demo account (`demo@example.com` / `demo-password`) with last month and this month of activity. Read the note about it under [Security](#security) first.
+`bun run dev` starts the database container, applies pending migrations and, while the database has no profiles yet, seeds a demo account: `demo@example.com` / `demo-password`, with last month and this month of activity. Sign in with it or create an account. `bun run db:local:reset` wipes the local database and seeds it again.
+
+Every local command loads only `.env.localdev` (Bun's `--env-file`), and refuses to run if it's missing, so the Neon values in `.env` stay out of local work. The seed also refuses any database that isn't on localhost.
+
+### Against Neon
+
+`.env` holds the Neon production branch (`neon env pull` fills in the Neon variables), plus `NEON_AUTH_COOKIE_SECRET` and `PORT` as in `.env.example`. `bun run dev:neon` runs the app against it. `bun run db:deploy` applies committed migrations to it; production deployments on Vercel do that on their own.
 
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
-| `bun run dev` | API with reload on :3000, and Vite on :5173, which forwards `/api` to the API |
+| `bun run dev` | Local: starts Postgres, migrates, seeds an empty database, then the API on :3000 with reload and Vite on :5173 (which forwards `/api` to the API) |
+| `bun run dev:neon` | Same servers against the Neon database in `.env` |
 | `bun test` | Pay plan tests |
 | `bun run typecheck` | Type-checks the server, shared code and web app |
 | `bun run build` | Type-checks, then builds the web app into `dist/` |
 | `bun run start` | Production: one process serves the API and the built app |
-| `bun run db:migrate --name <change>` | Creates a migration after editing `prisma/schema.prisma` |
-| `bun run db:deploy` | Applies committed migrations (no prompts, never resets data) |
-| `bun run db:seed` | Creates or recreates the demo account |
-| `bun run db:studio` | Opens Prisma Studio to browse the data |
+| `bun run db:migrate --name <change>` | Local: creates a migration after editing `prisma/schema.prisma` |
+| `bun run db:seed` | Local: creates or recreates the demo account |
+| `bun run db:studio` | Local: opens Prisma Studio to browse the data |
+| `bun run db:local:reset` | Local: deletes the database volume, then migrates and seeds again |
+| `bun run db:deploy` | Applies committed migrations to the database in `.env` (no prompts, never resets data) |
 
 ## Project structure
 
@@ -86,7 +96,7 @@ web/           React app
 
 ## Deployment
 
-Whatever the host, the server needs `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_COOKIE_SECRET` (generate a fresh secret for production with `openssl rand -base64 32`). After the first deploy, add the production domain to Neon Auth's trusted domains: only `localhost` is trusted by default, so sign-in fails anywhere else until you do. Don't run `bun run db:seed` against the Neon project a deployment uses (see the demo account note below).
+Whatever the host, the server needs `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_AUTH_BASE_URL` and `NEON_AUTH_COOKIE_SECRET` (generate a fresh secret for production with `openssl rand -base64 32`). After the first deploy, add the production domain to Neon Auth's trusted domains: only `localhost` is trusted by default, so sign-in fails anywhere else until you do. The demo seed only runs against a local database (see the demo account note below).
 
 ### Vercel
 
@@ -115,8 +125,8 @@ Most of these hosts set `PORT` themselves. The build doesn't need the database v
 - **Sign-in:** Neon Auth handles accounts, passwords and sessions. The browser reaches it only through `/api/auth/*` on this server, so the session cookies stay first-party.
 - **Your data stays yours:** every API query is filtered by the signed-in user. Another user's records answer 404.
 - **Requests:** bodies are validated with Zod and capped at 64 KB, form posts from other sites are rejected, and every response carries standard security headers.
-- **Secrets** live only in `.env`, which git ignores. `.env.example` lists the keys without values.
-- **Demo account:** the seed creates `demo@example.com` with the password published above, in whichever Neon Auth project `.env` points at. Don't run it against the project a public deployment uses, or delete that account before going live.
+- **Secrets** live only in `.env` and `.env.localdev`, which git ignores. `.env.example` and `.env.localdev.example` list the keys without values.
+- **Demo account:** the seed creates `demo@example.com` with the password published above, in the local database and in the Neon Auth that `.env.localdev` points at (the `development` branch). It refuses any database that isn't local; keep `.env.localdev` pointed at a development branch, never the one a public deployment uses.
 - **Open sign-up:** anyone who can reach a deployment can create an account. Restrict sign-up in Neon Auth if the app is only for your team.
 
 If you find a security problem, please report it privately through the repository's **Security** tab (private vulnerability reporting) instead of opening a public issue.

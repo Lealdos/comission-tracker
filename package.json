@@ -7,7 +7,9 @@
     "bun": ">=1.4"
   },
   "scripts": {
-    "dev": "concurrently -n server,web -c blue,green \"bun run dev:server\" \"bun run dev:web\"",
+    "dev": "bun run local:check && docker compose up -d --wait && bun --env-file=.env.localdev prisma migrate deploy && bun --env-file=.env.localdev server/db/seed.ts --if-empty && bun --env-file=.env.localdev run dev:servers",
+    "dev:neon": "bun run dev:servers",
+    "dev:servers": "concurrently -n server,web -c blue,green \"bun run dev:server\" \"bun run dev:web\"",
     "dev:server": "bun --watch server/index.ts",
     "dev:web": "vite",
     "build": "tsc --noEmit && tsc --noEmit -p web && vite build",
@@ -15,10 +17,12 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:seed": "bun server/db/seed.ts",
+    "db:migrate": "bun run local:check && bun --env-file=.env.localdev prisma migrate dev",
+    "db:seed": "bun run local:check && bun --env-file=.env.localdev server/db/seed.ts",
+    "db:studio": "bun run local:check && bun --env-file=.env.localdev prisma studio",
+    "db:local:reset": "bun run local:check && docker compose down -v && docker compose up -d --wait && bun --env-file=.env.localdev prisma migrate deploy && bun run db:seed",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio",
+    "local:check": "test -f .env.localdev || { echo 'Missing .env.localdev, so local commands would fall back to the Neon values in .env. Create it: cp .env.localdev.example .env.localdev (see README).' >&2; exit 1; }",
     "postinstall": "prisma generate"
   },
   "dependencies": {

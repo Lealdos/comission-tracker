@@ -3,6 +3,7 @@ dist
 .env
 .env.*
 !.env.example
+!.env.localdev.example
 *.log
 .DS_Store
 server/generated

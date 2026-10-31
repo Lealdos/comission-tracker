@@ -1,0 +1,27 @@
+# Local Postgres for development (OrbStack or Docker Desktop). Production runs on Neon.
+# `bun run dev` starts it; the data persists in the pgdata volume until `bun run db:local:reset`.
+# The project name keeps the folder's spelling, so this adopts the container and volume the earlier
+# local setup created (comission-tracker-db-1, comission-tracker_pgdata).
+name: comission-tracker
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: commission
+      POSTGRES_PASSWORD: commission
+      POSTGRES_DB: commission
+    ports:
+      # Localhost only: the credentials above are public.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commission -d commission"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  pgdata:

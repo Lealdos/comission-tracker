@@ -1,5 +1,6 @@
 // Creates (or recreates) a demo account with last month and this month of sample activity for local development.
 // Login: demo@example.com / demo-password
+// `bun run db:seed` runs it against the local database (.env.localdev); `--if-empty` skips it once the database has a profile.
 
 import { addDays, monthOf, monthStart, prevMonth, today } from "../../shared/dates.ts";
 import { toDbDate } from "../serialize.ts";
@@ -11,6 +12,21 @@ const NAME = "Demo Seller";
 const thisMonth = monthOf(today());
 const lastMonth = prevMonth(thisMonth);
 const on = (month: string, day: number) => toDbDate(addDays(monthStart(month), day - 1));
+
+// The demo password is published, so the demo account only goes into a local database, and its login into the
+// Neon Auth that .env.localdev points at (the `development` branch), never production's.
+const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+const dbHost = URL.parse(process.env.DATABASE_URL ?? "")?.hostname ?? "";
+if (!LOCAL_HOSTS.includes(dbHost)) {
+  console.error(`Refusing to seed: DATABASE_URL points at "${dbHost || "nothing"}", not a local database. Run \`bun run db:seed\`, which uses .env.localdev.`);
+  process.exit(1);
+}
+
+if (process.argv.includes("--if-empty") && (await prisma.user.count()) > 0) {
+  console.log("Local database already has data; skipping the demo seed (`bun run db:seed` recreates it).");
+  await prisma.$disconnect();
+  process.exit(0);
+}
 
 /** The demo login lives in Neon Auth: sign in to it, or sign it up the first time. */
 async function demoAccountId(): Promise<string> {
@@ -84,7 +100,7 @@ await prisma.user.create({
         ...deals(thisMonth, thisMonthSales),
         // Counts toward volume; paid what the affiliated store reports.
         { soldOn: on(thisMonth, 16), vehicleType: "new", grossCents: 1800_00, customerName: "Carlos Mendez", vehicle: "2026 Kona SEL", affiliateStore: true, affiliateCommissionCents: 300_00, notes: "Delivered at the affiliated store" },
-        // Split 50/50 and the unit left to the other salesperson, so this month still sits at 13 units.
+        // Split 50/50 and the unit left to the other salesperson: it pays half and doesn't change this month's units.
         { soldOn: on(thisMonth, 20), vehicleType: "new", grossCents: 2400_00, customerName: "Nina Alvarez", vehicle: "2026 Santa Fe XRT", stockNumber: "H6177", splitPct: 50, splitWith: "Chris Dalton", splitCountsForVolume: false },
       ],
     },
@@ -106,5 +122,5 @@ await prisma.user.create({
   },
 });
 
-console.log(`Seeded ${EMAIL} with ${lastMonthSales.length} deals in ${lastMonth} and ${thisMonthSales.length + 1} in ${thisMonth}`);
+console.log(`Seeded ${EMAIL} with ${lastMonthSales.length} deals in ${lastMonth} and ${thisMonthSales.length + 2} in ${thisMonth}`);
 await prisma.$disconnect();

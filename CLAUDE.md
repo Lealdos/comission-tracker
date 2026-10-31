@@ -8,20 +8,22 @@ Commission tracker for car salespeople on the Germain Hyundai pay plan (effectiv
 
 ```sh
 bun install                 # also runs `prisma generate` (postinstall)
-neon env pull               # fill .env from the linked Neon branch (.neon); `neon deploy` applies neon.ts and pulls too
-bun run db:migrate          # prisma migrate dev; add `--name <change>` after editing prisma/schema.prisma
-bun run db:seed             # demo account demo@example.com / demo-password (in Neon Auth) with last month and this month of sample activity
-bun run dev                 # API on :3000 (bun --watch) + Vite on :5173, which proxies /api to :3000
+bun run dev                 # local: Docker Postgres (compose.yaml) + migrate + seed if empty, then API on :3000 (bun --watch) + Vite on :5173 (proxies /api to :3000)
+bun run dev:neon            # same servers against the Neon database in .env
 bun test                    # commission engine tests
 bun test shared/commission.test.ts -t "volume"   # single test / describe by name
 bun run typecheck           # tsc --noEmit over shared/ + server/, then web/ (web/tsconfig.json)
 bun run build               # typecheck + vite build to dist/
-bun run db:deploy           # production: apply committed migrations (no prompts, never resets)
+bun run db:migrate          # local: prisma migrate dev; add `--name <change>` after editing prisma/schema.prisma
+bun run db:seed             # local: demo account demo@example.com / demo-password with last month and this month of sample activity
+bun run db:studio           # local: Prisma Studio, to browse/edit rows
+bun run db:local:reset      # local: drop the Docker volume, migrate, seed
+bun run db:deploy           # the database in .env (Neon): apply committed migrations (no prompts, never resets)
 bun run start               # production: Hono serves dist/ and the API from one process
-bun run db:studio           # Prisma Studio, to browse/edit rows
+neon env pull               # fill .env from the linked Neon branch (.neon); `neon deploy` applies neon.ts and pulls too
 ```
 
-`.env` needs the Neon variables (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_AUTH_BASE_URL`, from `neon env pull`) plus `NEON_AUTH_COOKIE_SECRET` (`openssl rand -base64 32`) and `PORT`; see `.env.example`.
+**Two env files.** Local development uses `.env.localdev` (from `.env.localdev.example`): the Docker Postgres in `compose.yaml` (OrbStack on the user's Mac) for data, and Neon Auth from the `development` Neon branch (`br-polished-queen-b4mf7xz7`, schema-only, no expiry) for sign-in, so the demo login never lands in production's Neon Auth. `.env` holds the Neon production branch (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_AUTH_BASE_URL` from `neon env pull`, plus `NEON_AUTH_COOKIE_SECRET` and `PORT`; see `.env.example`); Vercel has its own copies. Local scripts run `bun --env-file=.env.localdev …`, which loads only that file; child processes still fill *missing* variables from `.env`, so `.env.localdev` must define every variable the app reads, and `local:check` stops local scripts when the file is missing. Don't name it `.env.development`: Bun loads that one automatically for every command. The seed refuses any `DATABASE_URL` that isn't localhost, and `--if-empty` (used by `dev`) skips it once a profile exists.
 
 ## Architecture
 
@@ -36,7 +38,7 @@ Stack: Bun runtime, Hono API (`server/`), Prisma 7 + Neon Postgres, Neon Auth, R
 - **Per-user isolation:** every query filters by `c.get("user").id` (set by the `requireUser` middleware in `server/auth.ts`). Single-row writes use `where: { id, userId }` wrapped in `orNotFound()`, so another user's id gets a 404.
 - **Neon:** the folder is linked to Neon project `wandering-resonance-48133781`, branch `production` (`.neon`, git-ignored); `neon.ts` declares the services (Postgres, Auth). The app uses the pooled `DATABASE_URL` through `@prisma/adapter-pg` (node-postgres, right for a long-running server); `prisma.config.ts` points Prisma Migrate at `DATABASE_URL_UNPOOLED`, since migrations break through the pooler.
 - **Auth:** Neon Auth (Managed Better Auth) owns email, password and sessions (`neon_auth` schema). The browser uses `@neon/auth`'s client against `/api/auth/*`, created in `web/auth-client.ts` and imported dynamically by `web/auth.ts` (the sign-in screens preload it), because it's about a fifth of the bundle and only sign-in, sign-up and sign-out need it; keep `@neon/auth` out of static imports in `web/`. `vite.config.ts` splits `react` and `vendor` chunks (`entriesAware`, so lazy-only libraries stay out of the first load). `server/auth.ts` proxies `/api/auth/*` to `NEON_AUTH_BASE_URL` with the `@neon/auth/server` toolkit, so the cookies are first-party. `requireSession` checks the session (cached for 5 minutes in a signed `session_data` cookie); `requireUser` also loads the app profile, the `users` row whose `auth_user_id` is the Neon Auth user id. Sign-up creates the Neon Auth account, then the profile via `POST /api/me`; a signed-in account without a profile gets the "Finish setting up" screen.
-- **Hardening** (`server/app.ts`): `secureHeaders()` on every response; `csrf()` on `/api/*`, because Neon Auth's cookies are `SameSite=None` (JSON calls already need a CORS preflight the API never grants, and `csrf()` turns away cross-site form posts); a 64 KB `bodyLimit`. `onError` keeps the status of an `HTTPException` (403 from csrf, 400 for malformed JSON) and hides everything else behind a generic 500. Before a public deployment, keep the seeded demo account (published password) out of that Neon Auth project.
+- **Hardening** (`server/app.ts`): `secureHeaders()` on every response; `csrf()` on `/api/*`, because Neon Auth's cookies are `SameSite=None` (JSON calls already need a CORS preflight the API never grants, and `csrf()` turns away cross-site form posts); a 64 KB `bodyLimit`. `onError` keeps the status of an `HTTPException` (403 from csrf, 400 for malformed JSON) and hides everything else behind a generic 500. The seeded demo account (published password) belongs only in the local database and the `development` branch's Neon Auth.
 - **Validation:** request bodies are Zod schemas in `shared/schemas.ts`, applied via `server/validate.ts`, and errors come back as `{ error }`. Zod 4 applies `.default()` values inside `.partial()`, which is why `dealPatch` is built from the default-free `dealFields`. Keep that pattern for any PATCH schema. Deals and cars bought require `customerName` and `vehicle` (enforced there, not in the database, whose `""` defaults only cover rows logged before the requirement; the deals table flags those as "Missing details").
 - **Web ↔ server types:** `web/api.ts` imports response types from `server/serialize.ts` with `import type` only. Never value-import server code into `web/`, or Prisma ends up in the browser bundle.
 - **TypeScript 7** (the native compiler) is installed, and its `types` option defaults to `[]`. Ambient types therefore come only from the `types` lists: `bun` in `tsconfig.json`, `vite/client` in `web/tsconfig.json`; add any new `@types/*` package there. The root also sets `typeRoots` (resolved from that file): Vercel compiles `api/server.ts` through a temporary tsconfig in `/tmp` that extends the root one, and without it `types` would be looked up from `/tmp` and fail with TS2688. `web/tsconfig.json` adds `../node_modules` as a type root because `vite/client` is a file inside the vite package.
