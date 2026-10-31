@@ -41,6 +41,26 @@ export function MoneyInput({ className = "", ...props }: Omit<ComponentProps<"in
   );
 }
 
+/** A whole-percent field: number keypad on phones, % shown after the value. */
+export function PercentInput({ className = "", ...props }: Omit<ComponentProps<"input">, "type">) {
+  return (
+    <div className="relative">
+      <Input inputMode="numeric" autoComplete="off" {...props} className={`pr-8 tabular-nums ${className}`} />
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground">
+        %
+      </span>
+    </div>
+  );
+}
+
+/** Parses a whole percent from 1 to 99 (a split's share); null for anything else. */
+export function parseSplitPct(input: string): number | null {
+  const cleaned = input.replace(/[%\s]/g, "");
+  if (!/^\d{1,2}$/.test(cleaned)) return null;
+  const pct = Number(cleaned);
+  return pct >= 1 && pct <= 99 ? pct : null;
+}
+
 /** A native select dressed like the shadcn Input: phones and tablets open their own picker. */
 export function NativeSelect({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (

@@ -21,7 +21,17 @@ function Row({ label, detail, cents, strong, negative }: { label: ReactNode; det
 /** Line-by-line path from the month's activity to the commission check, so it can be compared with the dealership's sheet. */
 export function Breakdown({ summary: s, className }: { summary: MonthSummary; className?: string }) {
   const minimums = s.deals.filter((d) => d.minimumApplied).length;
-  const commissionDetail = [`${s.units.total} ${s.units.total === 1 ? "deal" : "deals"}`, minimums && `${minimums} at the minimum`, s.dpb.addedCents && "includes DPB"].filter(Boolean).join(", ");
+  const splits = s.deals.filter((d) => d.splitPct !== null);
+  const splitOutCents = splits.reduce((sum, d) => sum + d.splitCents, 0);
+  // Counts deals, not units: a split left out of the volume bonus is still paid.
+  const commissionDetail = [
+    `${s.deals.length} ${s.deals.length === 1 ? "deal" : "deals"}`,
+    minimums && `${minimums} at the minimum`,
+    splits.length && `${splits.length} split (${formatCents(splitOutCents)} to others)`,
+    s.dpb.addedCents && "includes DPB",
+  ]
+    .filter(Boolean)
+    .join(", ");
   const trainingWeek = s.draws.weeks.find((w) => w.training);
   const drawDetail = s.draws.overridden
     ? "Actual amount you entered"

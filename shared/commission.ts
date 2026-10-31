@@ -12,6 +12,10 @@ export interface DealInput {
   /** Sold at an affiliated store: counts toward volume, paid on that store's plan. */
   affiliateStore: boolean;
   affiliateCommissionCents: number | null;
+  /** Split with another salesperson: the whole percent of the commission that goes to them. Null when not split. */
+  splitPct: number | null;
+  /** Whether a split deal still counts toward the volume bonus. An unsplit deal always does. */
+  splitCountsForVolume: boolean;
 }
 
 export interface DpbSetting {
@@ -31,8 +35,15 @@ export interface DealLine {
   ratePct: number;
   /** Rate times commissionable gross, before the per-deal minimum. */
   rawCommissionCents: number;
-  commissionCents: number;
+  /** What the whole deal pays (minimum applied, or the affiliated store's figure), before any split. */
+  fullCommissionCents: number;
   minimumApplied: boolean;
+  splitPct: number | null;
+  /** The other salesperson's part of the full commission. */
+  splitCents: number;
+  /** What this salesperson is paid: the full commission minus the split. */
+  commissionCents: number;
+  countsForVolume: boolean;
 }
 
 export function tenureAddPct(plan: PayPlan, hireDate: string, on: string): number {
@@ -44,12 +55,31 @@ export function dealRatePct(plan: PayPlan, vehicleType: VehicleType, hireDate: s
   return plan.baseRatePct[vehicleType] + tenureAddPct(plan, hireDate, soldOn);
 }
 
+/**
+ * What a deal pays this salesperson. A split takes the other salesperson's percent off the whole deal's commission,
+ * after the minimum and the DPB (so a 50% split of a minimum deal pays half the minimum), and off an affiliated store's figure too.
+ */
 export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string, dpb: DpbSetting): DealLine {
-  const base = { id: deal.id, soldOn: deal.soldOn, vehicleType: deal.vehicleType, affiliateStore: deal.affiliateStore, grossCents: deal.grossCents };
+  const whole = wholeDealCommission(plan, deal, hireDate, dpb);
+  const keptCents = deal.splitPct === null ? whole.fullCommissionCents : Math.round((whole.fullCommissionCents * (100 - deal.splitPct)) / 100);
+  return {
+    id: deal.id,
+    soldOn: deal.soldOn,
+    vehicleType: deal.vehicleType,
+    affiliateStore: deal.affiliateStore,
+    grossCents: deal.grossCents,
+    ...whole,
+    splitPct: deal.splitPct,
+    splitCents: whole.fullCommissionCents - keptCents,
+    commissionCents: keptCents,
+    countsForVolume: deal.splitPct === null || deal.splitCountsForVolume,
+  };
+}
 
+function wholeDealCommission(plan: PayPlan, deal: DealInput, hireDate: string, dpb: DpbSetting) {
   if (deal.affiliateStore) {
     const paid = deal.affiliateCommissionCents ?? 0;
-    return { ...base, dpbCents: 0, commissionableCents: 0, ratePct: 0, rawCommissionCents: paid, commissionCents: paid, minimumApplied: false };
+    return { dpbCents: 0, commissionableCents: 0, ratePct: 0, rawCommissionCents: paid, fullCommissionCents: paid, minimumApplied: false };
   }
 
   const dpbCents = dpb.qualified && plan.dpbAppliesTo.includes(deal.vehicleType) ? dpb.perCarCents : 0;
@@ -60,12 +90,11 @@ export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string,
   const minimumApplied = rawCommissionCents < minCents;
 
   return {
-    ...base,
     dpbCents,
     commissionableCents,
     ratePct,
     rawCommissionCents,
-    commissionCents: minimumApplied ? minCents : rawCommissionCents,
+    fullCommissionCents: minimumApplied ? minCents : rawCommissionCents,
     minimumApplied,
   };
 }
@@ -113,10 +142,12 @@ export function monthSummary(input: MonthInput) {
     .sort((a, b) => a.soldOn.localeCompare(b.soldOn) || a.id - b.id)
     .map((d) => dealCommission(plan, d, input.hireDate, input.dpb));
 
+  // Split deals the salesperson chose not to count are left out of the units.
+  const counted = deals.filter((d) => d.countsForVolume);
   const units = {
-    new: deals.filter((d) => d.vehicleType === "new").length,
-    used: deals.filter((d) => d.vehicleType === "used").length,
-    total: deals.length,
+    new: counted.filter((d) => d.vehicleType === "new").length,
+    used: counted.filter((d) => d.vehicleType === "used").length,
+    total: counted.length,
   };
 
   const commissionCents = sum(deals.map((d) => d.commissionCents));

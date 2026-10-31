@@ -28,18 +28,42 @@ const dealFields = z.object({
   stockNumber: z.string().trim().max(200),
   affiliateStore: z.boolean(),
   affiliateCommissionCents: cents.nullable(),
+  /** Whole percent of the commission that goes to the other salesperson; null when the deal isn't split. */
+  splitPct: z.number().int().min(1, "A split gives away 1% to 99%").max(99, "A split gives away 1% to 99%").nullable(),
+  splitWith: z.string().trim().max(200),
+  splitCountsForVolume: z.boolean(),
   notes: z.string().trim().max(2000),
 });
 
-export const dealBody = dealFields.extend({
-  stockNumber: dealFields.shape.stockNumber.default(""),
-  affiliateStore: dealFields.shape.affiliateStore.default(false),
-  affiliateCommissionCents: dealFields.shape.affiliateCommissionCents.default(null),
-  notes: dealFields.shape.notes.default(""),
-});
+type SplitFields = { splitPct?: number | null; splitWith?: string; splitCountsForVolume?: boolean };
+
+/** A split has to say who it was with, so a PATCH that sets one sends the name too. */
+const namesPartner = (d: SplitFields) => d.splitPct == null || !!d.splitWith;
+const partnerMissing = { path: ["splitWith"], message: "Enter who you split the deal with" };
+
+/** Turning a split off clears its partner and volume choice, so no row keeps a stale split. */
+function clearUnsplit<T extends SplitFields>(d: T): T {
+  return d.splitPct === null ? { ...d, splitWith: "", splitCountsForVolume: true } : d;
+}
+
+export const dealBody = dealFields
+  .extend({
+    stockNumber: dealFields.shape.stockNumber.default(""),
+    affiliateStore: dealFields.shape.affiliateStore.default(false),
+    affiliateCommissionCents: dealFields.shape.affiliateCommissionCents.default(null),
+    splitPct: dealFields.shape.splitPct.default(null),
+    splitWith: dealFields.shape.splitWith.default(""),
+    splitCountsForVolume: dealFields.shape.splitCountsForVolume.default(true),
+    notes: dealFields.shape.notes.default(""),
+  })
+  .refine(namesPartner, partnerMissing)
+  .transform(clearUnsplit);
 
 /** Built from the default-free fields: zod 4 applies defaults inside .partial(), which would wipe unsent fields. */
-export const dealPatch = dealFields.partial();
+export const dealPatch = dealFields
+  .partial()
+  .refine(namesPartner, partnerMissing)
+  .transform(clearUnsplit);
 
 export const acquisitionBody = z.object({
   acquiredOn: isoDate,

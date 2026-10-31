@@ -57,6 +57,12 @@ model Deal {
   /// Sold at an affiliated store: counts toward volume, paid on that store's plan.
   affiliateStore           Boolean     @default(false) @map("affiliate_store")
   affiliateCommissionCents Int?        @map("affiliate_commission_cents")
+  /// Split with another salesperson: the whole percent of the commission that goes to them (1-99). Null when not split.
+  splitPct                 Int?        @map("split_pct")
+  /// Who the deal was split with; "" when it wasn't.
+  splitWith                String      @default("") @map("split_with")
+  /// Whether a split deal still counts as a unit toward the volume bonus (the salesperson's choice per deal).
+  splitCountsForVolume     Boolean     @default(true) @map("split_counts_for_volume")
   notes                    String      @default("")
   createdAt                DateTime    @default(now()) @map("created_at") @db.Timestamptz
   user                     User        @relation(fields: [userId], references: [id], onDelete: Cascade)

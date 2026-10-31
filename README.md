@@ -19,6 +19,7 @@ All pay rules live in `shared/`: `payplan.ts` holds the plan as data, versioned 
 - **Commission** is a percentage of the gross as the dealership reports it, which is already net of the $500 management fee: 16% on new and 18% on pre-owned, plus 1 point after one year of tenure and 2 after two. Every deal pays at least $250 (new) or $200 (pre-owned), even when the gross is negative.
 - **Volume bonus** is cumulative: every milestone reached pays. 13, 16 and 19 units pay $500 each; 22, 26 and 30 pay $1,000 each; 35 and 40 pay $1,500 each. Sales at an affiliated store count toward volume and use the commission that store reports.
 - **Dealer Performance Bonus:** in a month where you meet the CSI and certification standards, a per-car amount is added to the gross of every new vehicle.
+- **Split deals:** a deal shared with another salesperson records who and their percent, which comes off the deal's commission (after the minimum and DPB). You choose per deal whether it still counts toward your volume.
 - **Cars bought** from customers pay $200 each. They are not sales and don't count toward volume.
 - **Draws** are $500 every Friday ($600 in the first 90 days after hire), at most 4 Fridays a month, so $2,000 or $2,400 at most. You can enter the amount you were actually paid instead.
 - **The check** is what you earned minus the draws already paid. The draw is a guarantee, so a slow month still pays the draws, and the shortfall doesn't carry over.

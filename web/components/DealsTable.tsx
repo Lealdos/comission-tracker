@@ -51,6 +51,7 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
                     <Badge className={deal.vehicleType === "new" ? tone.positive : tone.neutral}>{deal.vehicleType === "new" ? "New" : "Pre-owned"}</Badge>
                     {deal.affiliateStore && <Badge className={tone.neutral}>Affiliate</Badge>}
+                    {deal.splitPct !== null && <Badge className={tone.neutral}>Split</Badge>}
                     {/* Deals logged before customer and vehicle were required. */}
                     {(!deal.customerName || !deal.vehicle) && <Badge className={tone.warning}>Missing details</Badge>}
                     {(deal.customerName || deal.stockNumber) && (
@@ -61,6 +62,12 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
                       </span>
                     )}
                   </div>
+                  {deal.splitPct !== null && (
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {deal.splitPct}% to {deal.splitWith}
+                      {!deal.splitCountsForVolume && ", not counted toward volume"}
+                    </div>
+                  )}
                   {deal.notes && <div className="mt-0.5 text-xs text-muted-foreground">{deal.notes}</div>}
                 </td>
                 <td className={`max-sm:col-start-1 max-sm:row-start-2 max-sm:text-xs max-sm:text-muted-foreground sm:px-3 sm:text-right sm:align-top ${cell}`}>
@@ -81,6 +88,11 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
                 <td className={`text-right text-muted-foreground max-sm:hidden sm:px-3 sm:align-top lg:max-xl:hidden ${cell}`}>{rate ?? "—"}</td>
                 <td className={`text-right max-sm:col-start-2 max-sm:row-start-1 sm:px-3 sm:align-top ${cell}`}>
                   {line && <Money cents={line.commissionCents} className="font-semibold" />}
+                  {!!line?.splitCents && (
+                    <div className="text-xs whitespace-nowrap text-muted-foreground">
+                      of <Money cents={line.fullCommissionCents} />
+                    </div>
+                  )}
                   {line?.minimumApplied && (
                     <div className="mt-1">
                       <Badge className={tone.warning}>Minimum</Badge>

@@ -9,7 +9,17 @@ const HIRE = "2026-01-01";
 
 let nextId = 1;
 function deal(vehicleType: "new" | "used", grossDollars: number, extra: Partial<DealInput> = {}): DealInput {
-  return { id: nextId++, soldOn: "2026-06-15", vehicleType, grossCents: grossDollars * 100, affiliateStore: false, affiliateCommissionCents: null, ...extra };
+  return {
+    id: nextId++,
+    soldOn: "2026-06-15",
+    vehicleType,
+    grossCents: grossDollars * 100,
+    affiliateStore: false,
+    affiliateCommissionCents: null,
+    splitPct: null,
+    splitCountsForVolume: true,
+    ...extra,
+  };
 }
 
 describe("dealCommission", () => {
@@ -65,6 +75,64 @@ describe("dealCommission", () => {
     const line = dealCommission(plan, deal("new", 3000, { affiliateStore: true, affiliateCommissionCents: 312_50 }), HIRE, NO_DPB);
     expect(line.commissionCents).toBe(312_50);
     expect(line.minimumApplied).toBe(false);
+  });
+});
+
+describe("split deals", () => {
+  test("the other salesperson's percent comes off the deal's commission", () => {
+    const line = dealCommission(plan, deal("new", 3000, { splitPct: 50 }), HIRE, NO_DPB);
+    expect(line.fullCommissionCents).toBe(480_00);
+    expect(line.splitCents).toBe(240_00);
+    expect(line.commissionCents).toBe(240_00);
+  });
+
+  test("an uneven split keeps the rest, rounded to the cent", () => {
+    // $2,345.67 x 18% = $422.22; giving away 30% keeps 70%, $295.554 -> $295.55.
+    const line = dealCommission(plan, { ...deal("used", 0), grossCents: 2345_67, splitPct: 30 }, HIRE, NO_DPB);
+    expect(line.fullCommissionCents).toBe(422_22);
+    expect(line.commissionCents).toBe(295_55);
+    expect(line.splitCents + line.commissionCents).toBe(line.fullCommissionCents);
+  });
+
+  test("a split minimum deal pays its share of the minimum", () => {
+    const line = dealCommission(plan, deal("new", 1000, { splitPct: 50 }), HIRE, NO_DPB);
+    expect(line.minimumApplied).toBe(true);
+    expect(line.fullCommissionCents).toBe(250_00);
+    expect(line.commissionCents).toBe(125_00);
+  });
+
+  test("the split applies after the DPB is added", () => {
+    const line = dealCommission(plan, deal("new", 2000, { splitPct: 50 }), HIRE, { qualified: true, perCarCents: 800_00 });
+    expect(line.fullCommissionCents).toBe(448_00);
+    expect(line.commissionCents).toBe(224_00);
+  });
+
+  test("an affiliated-store deal splits the commission that store reports", () => {
+    const line = dealCommission(plan, deal("new", 3000, { affiliateStore: true, affiliateCommissionCents: 300_00, splitPct: 25 }), HIRE, NO_DPB);
+    expect(line.commissionCents).toBe(225_00);
+  });
+
+  test("an unsplit deal keeps everything and always counts toward volume", () => {
+    const line = dealCommission(plan, deal("new", 3000, { splitCountsForVolume: false }), HIRE, NO_DPB);
+    expect(line.splitCents).toBe(0);
+    expect(line.commissionCents).toBe(line.fullCommissionCents);
+    expect(line.countsForVolume).toBe(true);
+  });
+
+  test("a split deal counts toward volume only when the salesperson says so", () => {
+    const deals = [...Array.from({ length: 12 }, () => deal("new", 3000)), deal("used", 2500, { splitPct: 50, splitCountsForVolume: true })];
+    const base = { month: "2026-06", hireDate: HIRE, deals, acquisitionCount: 0, spiffCents: [], dpb: NO_DPB, drawOverrideCents: null };
+
+    const counted = monthSummary(base);
+    expect(counted.units).toEqual({ new: 12, used: 1, total: 13 });
+    expect(counted.volume.bonusCents).toBe(500_00);
+    expect(counted.commissionCents).toBe(12 * 480_00 + 225_00);
+
+    const notCounted = monthSummary({ ...base, deals: deals.map((d) => (d.splitPct ? { ...d, splitCountsForVolume: false } : d)) });
+    expect(notCounted.units).toEqual({ new: 12, used: 0, total: 12 });
+    expect(notCounted.volume.bonusCents).toBe(0);
+    // Still paid its share, just not counted as a unit.
+    expect(notCounted.commissionCents).toBe(12 * 480_00 + 225_00);
   });
 });
 
