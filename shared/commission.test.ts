@@ -14,8 +14,6 @@ function deal(vehicleType: "new" | "used", grossDollars: number, extra: Partial<
     soldOn: "2026-06-15",
     vehicleType,
     grossCents: grossDollars * 100,
-    affiliateStore: false,
-    affiliateCommissionCents: null,
     splitPct: null,
     splitCountsForVolume: true,
     ...extra,
@@ -70,12 +68,6 @@ describe("dealCommission", () => {
     expect(line.dpbCents).toBe(0);
     expect(line.commissionCents).toBe(320_00);
   });
-
-  test("affiliated-store deals pay the entered commission", () => {
-    const line = dealCommission(plan, deal("new", 3000, { affiliateStore: true, affiliateCommissionCents: 312_50 }), HIRE, NO_DPB);
-    expect(line.commissionCents).toBe(312_50);
-    expect(line.minimumApplied).toBe(false);
-  });
 });
 
 describe("split deals", () => {
@@ -105,11 +97,6 @@ describe("split deals", () => {
     const line = dealCommission(plan, deal("new", 2000, { splitPct: 50 }), HIRE, { qualified: true, perCarCents: 800_00 });
     expect(line.fullCommissionCents).toBe(448_00);
     expect(line.commissionCents).toBe(224_00);
-  });
-
-  test("an affiliated-store deal splits the commission that store reports", () => {
-    const line = dealCommission(plan, deal("new", 3000, { affiliateStore: true, affiliateCommissionCents: 300_00, splitPct: 25 }), HIRE, NO_DPB);
-    expect(line.commissionCents).toBe(225_00);
   });
 
   test("an unsplit deal keeps everything and always counts toward volume", () => {

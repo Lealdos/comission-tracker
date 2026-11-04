@@ -70,7 +70,7 @@ type Draft = {
   vehicle: string;
   stockNumber: string;
   affiliateStore: boolean;
-  affiliateCommission: string;
+  affiliateStoreName: string;
   split: boolean;
   splitWith: string;
   /** The other salesperson's share, as typed. */
@@ -82,7 +82,7 @@ type Draft = {
 const SPLIT_DEFAULTS = { split: false, splitWith: "", splitPct: "50", splitCountsForVolume: true };
 
 function blankDraft(soldOn: string): Draft {
-  return { soldOn, gross: "", customerName: "", vehicle: "", stockNumber: "", affiliateStore: false, affiliateCommission: "", ...SPLIT_DEFAULTS, notes: "" };
+  return { soldOn, gross: "", customerName: "", vehicle: "", stockNumber: "", affiliateStore: false, affiliateStoreName: "", ...SPLIT_DEFAULTS, notes: "" };
 }
 
 function draftFromDeal(d: Deal): Draft {
@@ -93,7 +93,7 @@ function draftFromDeal(d: Deal): Draft {
     vehicle: d.vehicle,
     stockNumber: d.stockNumber,
     affiliateStore: d.affiliateStore,
-    affiliateCommission: d.affiliateCommissionCents === null ? "" : (d.affiliateCommissionCents / 100).toFixed(2),
+    affiliateStoreName: d.affiliateStoreName,
     ...(d.splitPct === null ? SPLIT_DEFAULTS : { split: true, splitWith: d.splitWith, splitPct: String(d.splitPct), splitCountsForVolume: d.splitCountsForVolume }),
     notes: d.notes,
   };
@@ -107,7 +107,6 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
   const remove = useMonthMutation((id: number) => api.deleteDeal(id));
 
   const grossCents = parseDollars(draft.gross);
-  const affiliateCents = draft.affiliateStore ? parseDollars(draft.affiliateCommission) : null;
   const splitPct = draft.split ? parseSplitPct(draft.splitPct) : null;
   const preview =
     grossCents === null || !draft.soldOn
@@ -119,8 +118,6 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
             soldOn: draft.soldOn,
             vehicleType,
             grossCents,
-            affiliateStore: draft.affiliateStore,
-            affiliateCommissionCents: affiliateCents,
             splitPct,
             splitCountsForVolume: draft.splitCountsForVolume,
           },
@@ -128,7 +125,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
           dpb,
         );
 
-  const invalid = grossCents === null || (draft.affiliateStore && affiliateCents === null) || (draft.split && splitPct === null);
+  const invalid = grossCents === null || (draft.split && splitPct === null);
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -142,7 +139,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         vehicle: draft.vehicle,
         stockNumber: draft.stockNumber,
         affiliateStore: draft.affiliateStore,
-        affiliateCommissionCents: affiliateCents,
+        affiliateStoreName: draft.affiliateStore ? draft.affiliateStoreName : "",
         splitPct,
         splitWith: draft.split ? draft.splitWith : "",
         splitCountsForVolume: draft.split ? draft.splitCountsForVolume : true,
@@ -184,12 +181,12 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         <Checkbox className="mt-0.5" checked={draft.affiliateStore} onCheckedChange={(v) => set("affiliateStore", v === true)} />
         <span>
           Sold at an affiliated Germain store
-          <span className="block text-xs text-muted-foreground">Counts toward your volume bonus; paid on that store's plan.</span>
+          <span className="block text-xs text-muted-foreground">Paid on your plan and counted toward your volume, like any other deal.</span>
         </span>
       </label>
       {draft.affiliateStore && (
-        <Field label="Commission from that store" className="col-span-6 @xl:col-span-3">
-          <MoneyInput required placeholder="0.00" value={draft.affiliateCommission} onChange={(e) => set("affiliateCommission", e.target.value)} />
+        <Field label="Which store" className="col-span-6 @xl:col-span-3">
+          <Input required autoComplete="off" placeholder="Store name" value={draft.affiliateStoreName} maxLength={200} onChange={(e) => set("affiliateStoreName", e.target.value)} />
         </Field>
       )}
 
@@ -264,13 +261,9 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
 function DealPreview({ line, splitWith }: { line: ReturnType<typeof dealCommission> | null; splitWith: string }) {
   if (!line) return <div className="rounded-lg border border-dashed px-3.5 py-3 text-sm text-muted-foreground">Enter the gross to see what this deal pays.</div>;
 
-  let math: string;
-  if (line.affiliateStore) math = "Paid on the affiliated store's plan";
-  else {
-    const gross = line.dpbCents ? `(${formatCents(line.grossCents)} + ${formatCents(line.dpbCents, { whole: true })} DPB)` : formatCents(line.grossCents);
-    math = `${gross} × ${line.ratePct}% = ${formatCents(line.rawCommissionCents)}`;
-    if (line.minimumApplied) math += `, so the ${formatCents(line.fullCommissionCents, { whole: true })} minimum applies`;
-  }
+  const gross = line.dpbCents ? `(${formatCents(line.grossCents)} + ${formatCents(line.dpbCents, { whole: true })} DPB)` : formatCents(line.grossCents);
+  let math = `${gross} × ${line.ratePct}% = ${formatCents(line.rawCommissionCents)}`;
+  if (line.minimumApplied) math += `, so the ${formatCents(line.fullCommissionCents, { whole: true })} minimum applies`;
   if (line.splitPct !== null) {
     math += `, minus ${splitWith ? `${splitWith}'s` : "their"} ${line.splitPct}% (${formatCents(line.splitCents)})`;
     if (!line.countsForVolume) math += ". Not counted toward your volume";

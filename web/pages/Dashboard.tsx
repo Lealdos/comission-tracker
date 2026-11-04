@@ -129,9 +129,7 @@ export function Dashboard() {
                                 settings={data.settings}
                                 newDeals={
                                     data.summary.deals.filter(
-                                        (d) =>
-                                            d.vehicleType === 'new' &&
-                                            !d.affiliateStore,
+                                        (d) => d.vehicleType === 'new',
                                     ).length
                                 }
                                 scheduledDrawCents={

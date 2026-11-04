@@ -54,9 +54,10 @@ model Deal {
   /// As the salesperson writes it, e.g. "2026 Tucson SEL".
   vehicle                  String      @default("")
   stockNumber              String      @default("") @map("stock_number")
-  /// Sold at an affiliated store: counts toward volume, paid on that store's plan.
+  /// Sold at an affiliated Germain store: paid on this store's plan and counted toward volume like any other deal.
   affiliateStore           Boolean     @default(false) @map("affiliate_store")
-  affiliateCommissionCents Int?        @map("affiliate_commission_cents")
+  /// Which affiliated store; required by the API with `affiliateStore`, "" otherwise (and on affiliate sales logged before it was).
+  affiliateStoreName       String      @default("") @map("affiliate_store_name")
   /// Split with another salesperson: the whole percent of the commission that goes to them (1-99). Null when not split.
   splitPct                 Int?        @map("split_pct")
   /// Who the deal was split with; "" when it wasn't.

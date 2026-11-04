@@ -38,7 +38,7 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
         <tbody className="tabular-nums">
           {deals.map((deal) => {
             const line = lineById.get(deal.id);
-            const rate = line && !line.affiliateStore ? `${line.ratePct}%` : null;
+            const rate = line ? `${line.ratePct}%` : null;
             const date = formatDate(deal.soldOn);
             return (
               <tr
@@ -52,8 +52,8 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
                     <Badge className={deal.vehicleType === "new" ? tone.positive : tone.neutral}>{deal.vehicleType === "new" ? "New" : "Pre-owned"}</Badge>
                     {deal.affiliateStore && <Badge className={tone.neutral}>Affiliate</Badge>}
                     {deal.splitPct !== null && <Badge className={tone.neutral}>Split</Badge>}
-                    {/* Deals logged before customer and vehicle were required. */}
-                    {(!deal.customerName || !deal.vehicle) && <Badge className={tone.warning}>Missing details</Badge>}
+                    {/* Deals logged before customer, vehicle and the affiliated store were required. */}
+                    {(!deal.customerName || !deal.vehicle || (deal.affiliateStore && !deal.affiliateStoreName)) && <Badge className={tone.warning}>Missing details</Badge>}
                     {(deal.customerName || deal.stockNumber) && (
                       <span>
                         {deal.customerName}
@@ -62,6 +62,7 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
                       </span>
                     )}
                   </div>
+                  {deal.affiliateStore && deal.affiliateStoreName && <div className="mt-0.5 text-xs text-muted-foreground">Sold at {deal.affiliateStoreName}</div>}
                   {deal.splitPct !== null && (
                     <div className="mt-0.5 text-xs text-muted-foreground">
                       {deal.splitPct}% to {deal.splitWith}

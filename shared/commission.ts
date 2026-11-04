@@ -9,9 +9,6 @@ export interface DealInput {
   soldOn: string;
   vehicleType: VehicleType;
   grossCents: number;
-  /** Sold at an affiliated store: counts toward volume, paid on that store's plan. */
-  affiliateStore: boolean;
-  affiliateCommissionCents: number | null;
   /** Split with another salesperson: the whole percent of the commission that goes to them. Null when not split. */
   splitPct: number | null;
   /** Whether a split deal still counts toward the volume bonus. An unsplit deal always does. */
@@ -27,7 +24,6 @@ export interface DealLine {
   id: number;
   soldOn: string;
   vehicleType: VehicleType;
-  affiliateStore: boolean;
   grossCents: number;
   dpbCents: number;
   /** Gross plus DPB. */
@@ -35,7 +31,7 @@ export interface DealLine {
   ratePct: number;
   /** Rate times commissionable gross, before the per-deal minimum. */
   rawCommissionCents: number;
-  /** What the whole deal pays (minimum applied, or the affiliated store's figure), before any split. */
+  /** What the whole deal pays (minimum applied), before any split. */
   fullCommissionCents: number;
   minimumApplied: boolean;
   splitPct: number | null;
@@ -56,8 +52,9 @@ export function dealRatePct(plan: PayPlan, vehicleType: VehicleType, hireDate: s
 }
 
 /**
- * What a deal pays this salesperson. A split takes the other salesperson's percent off the whole deal's commission,
- * after the minimum and the DPB (so a 50% split of a minimum deal pays half the minimum), and off an affiliated store's figure too.
+ * What a deal pays this salesperson. A sale at an affiliated store pays on this plan like any other, so it isn't an input here.
+ * A split takes the other salesperson's percent off the whole deal's commission, after the minimum and the DPB
+ * (so a 50% split of a minimum deal pays half the minimum).
  */
 export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string, dpb: DpbSetting): DealLine {
   const whole = wholeDealCommission(plan, deal, hireDate, dpb);
@@ -66,7 +63,6 @@ export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string,
     id: deal.id,
     soldOn: deal.soldOn,
     vehicleType: deal.vehicleType,
-    affiliateStore: deal.affiliateStore,
     grossCents: deal.grossCents,
     ...whole,
     splitPct: deal.splitPct,
@@ -77,11 +73,6 @@ export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string,
 }
 
 function wholeDealCommission(plan: PayPlan, deal: DealInput, hireDate: string, dpb: DpbSetting) {
-  if (deal.affiliateStore) {
-    const paid = deal.affiliateCommissionCents ?? 0;
-    return { dpbCents: 0, commissionableCents: 0, ratePct: 0, rawCommissionCents: paid, fullCommissionCents: paid, minimumApplied: false };
-  }
-
   const dpbCents = dpb.qualified && plan.dpbAppliesTo.includes(deal.vehicleType) ? dpb.perCarCents : 0;
   const commissionableCents = deal.grossCents + dpbCents;
   const ratePct = dealRatePct(plan, deal.vehicleType, hireDate, deal.soldOn);

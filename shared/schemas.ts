@@ -26,8 +26,10 @@ const dealFields = z.object({
   customerName,
   vehicle,
   stockNumber: z.string().trim().max(200),
+  /** Sold at an affiliated Germain store; it still pays on this store's plan. */
   affiliateStore: z.boolean(),
-  affiliateCommissionCents: cents.nullable(),
+  /** Which affiliated store; "" when the sale was at this store. */
+  affiliateStoreName: z.string().trim().max(200),
   /** Whole percent of the commission that goes to the other salesperson; null when the deal isn't split. */
   splitPct: z.number().int().min(1, "A split gives away 1% to 99%").max(99, "A split gives away 1% to 99%").nullable(),
   splitWith: z.string().trim().max(200),
@@ -35,35 +37,44 @@ const dealFields = z.object({
   notes: z.string().trim().max(2000),
 });
 
-type SplitFields = { splitPct?: number | null; splitWith?: string; splitCountsForVolume?: boolean };
+type DependentFields = { affiliateStore?: boolean; affiliateStoreName?: string; splitPct?: number | null; splitWith?: string; splitCountsForVolume?: boolean };
+
+/** An affiliate sale has to say which store, so a PATCH that turns one on sends the store too. */
+const namesStore = (d: DependentFields) => d.affiliateStore !== true || !!d.affiliateStoreName;
+const storeMissing = { path: ["affiliateStoreName"], message: "Enter which affiliated store you sold it at" };
 
 /** A split has to say who it was with, so a PATCH that sets one sends the name too. */
-const namesPartner = (d: SplitFields) => d.splitPct == null || !!d.splitWith;
+const namesPartner = (d: DependentFields) => d.splitPct == null || !!d.splitWith;
 const partnerMissing = { path: ["splitWith"], message: "Enter who you split the deal with" };
 
-/** Turning a split off clears its partner and volume choice, so no row keeps a stale split. */
-function clearUnsplit<T extends SplitFields>(d: T): T {
-  return d.splitPct === null ? { ...d, splitWith: "", splitCountsForVolume: true } : d;
+/** Turning off an affiliate sale or a split clears what depended on it, so no row keeps a stale store or partner. */
+function clearUnset<T extends DependentFields>(d: T): T {
+  let out = d;
+  if (out.affiliateStore === false) out = { ...out, affiliateStoreName: "" };
+  if (out.splitPct === null) out = { ...out, splitWith: "", splitCountsForVolume: true };
+  return out;
 }
 
 export const dealBody = dealFields
   .extend({
     stockNumber: dealFields.shape.stockNumber.default(""),
     affiliateStore: dealFields.shape.affiliateStore.default(false),
-    affiliateCommissionCents: dealFields.shape.affiliateCommissionCents.default(null),
+    affiliateStoreName: dealFields.shape.affiliateStoreName.default(""),
     splitPct: dealFields.shape.splitPct.default(null),
     splitWith: dealFields.shape.splitWith.default(""),
     splitCountsForVolume: dealFields.shape.splitCountsForVolume.default(true),
     notes: dealFields.shape.notes.default(""),
   })
+  .refine(namesStore, storeMissing)
   .refine(namesPartner, partnerMissing)
-  .transform(clearUnsplit);
+  .transform(clearUnset);
 
 /** Built from the default-free fields: zod 4 applies defaults inside .partial(), which would wipe unsent fields. */
 export const dealPatch = dealFields
   .partial()
+  .refine(namesStore, storeMissing)
   .refine(namesPartner, partnerMissing)
-  .transform(clearUnsplit);
+  .transform(clearUnset);
 
 export const acquisitionBody = z.object({
   acquiredOn: isoDate,

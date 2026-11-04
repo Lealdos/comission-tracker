@@ -98,8 +98,8 @@ await prisma.user.create({
       create: [
         ...deals(lastMonth, lastMonthSales),
         ...deals(thisMonth, thisMonthSales),
-        // Counts toward volume; paid what the affiliated store reports.
-        { soldOn: on(thisMonth, 16), vehicleType: "new", grossCents: 1800_00, customerName: "Carlos Mendez", vehicle: "2026 Kona SEL", affiliateStore: true, affiliateCommissionCents: 300_00, notes: "Delivered at the affiliated store" },
+        // Sold at an affiliated store: paid on this plan and counted toward volume like any other deal.
+        { soldOn: on(thisMonth, 16), vehicleType: "new", grossCents: 1800_00, customerName: "Carlos Mendez", vehicle: "2026 Kona SEL", affiliateStore: true, affiliateStoreName: "Germain Toyota" },
         // Split 50/50 and the unit left to the other salesperson: it pays half and doesn't change this month's units.
         { soldOn: on(thisMonth, 20), vehicleType: "new", grossCents: 2400_00, customerName: "Nina Alvarez", vehicle: "2026 Santa Fe XRT", stockNumber: "H6177", splitPct: 50, splitWith: "Chris Dalton", splitCountsForVolume: false },
       ],
