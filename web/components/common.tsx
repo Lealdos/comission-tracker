@@ -97,7 +97,10 @@ export function PayPreview({ label, cents, detail }: { label: string; cents: num
   );
 }
 
-/** A trash button that asks first, naming exactly what goes and what it does to the check. `what` completes the button's accessible name. */
+/**
+ * A trash button that asks first, naming exactly what goes and what it does to the check. `what` completes the button's accessible name.
+ * `label` turns the icon into a text button with that label (the deal dialog's footer).
+ */
 export function ConfirmDelete({
   what,
   title,
@@ -105,6 +108,7 @@ export function ConfirmDelete({
   confirmLabel,
   onConfirm,
   disabled,
+  label,
   className = "",
 }: {
   what: string;
@@ -113,14 +117,22 @@ export function ConfirmDelete({
   confirmLabel: string;
   onConfirm: () => void;
   disabled?: boolean;
+  label?: string;
   className?: string;
 }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" className={`text-muted-foreground hover:bg-destructive/10 hover:text-destructive ${className}`} disabled={disabled} aria-label={`Delete ${what}`}>
-          <Trash2 />
-        </Button>
+        {label ? (
+          <Button variant="ghost" className={`text-destructive hover:bg-destructive/10 hover:text-destructive ${className}`} disabled={disabled}>
+            <Trash2 />
+            {label}
+          </Button>
+        ) : (
+          <Button variant="ghost" size="icon" className={`text-muted-foreground hover:bg-destructive/10 hover:text-destructive ${className}`} disabled={disabled} aria-label={`Delete ${what}`}>
+            <Trash2 />
+          </Button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

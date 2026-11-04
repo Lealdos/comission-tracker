@@ -8,12 +8,13 @@ import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 
 // Phones get compact rows (deal and commission, customer, then date, gross and edit); from `sm` up it's a normal table.
+// Clicking a row opens the deal's dialog: all its details and notes, editing and deleting.
 const cell = "sm:border-b sm:py-3";
 // On desktop the list scrolls inside the card under a header that stays put, filling the height its column leaves
 // (at least 20rem); phones and tablets keep the page scroll.
 const head = "border-b py-2 lg:sticky lg:top-0 lg:z-10 lg:bg-card";
 
-export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[]; lines: DealLine[]; editingId: number | null; onEdit: (deal: Deal) => void }) {
+export function DealsTable({ deals, lines, onOpen }: { deals: Deal[]; lines: DealLine[]; onOpen: (deal: Deal, opts: { editing: boolean }) => void }) {
   const remove = useMonthMutation((id: number) => api.deleteDeal(id));
   const lineById = new Map(lines.map((l) => [l.id, l]));
 
@@ -43,11 +44,15 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
             return (
               <tr
                 key={deal.id}
-                className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 border-b py-3 last:border-0 sm:table-row sm:border-0 sm:py-0 ${editingId === deal.id ? "bg-positive-soft/70" : ""}`}
+                onClick={() => onOpen(deal, { editing: false })}
+                className="group grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 border-b py-3 last:border-0 sm:table-row sm:border-0 sm:py-0"
               >
                 <td className={`whitespace-nowrap max-sm:hidden sm:pr-3 sm:align-top ${cell}`}>{date}</td>
                 <td className={`sm:pr-3 sm:align-top ${cell}`}>
-                  <div className="font-medium">{deal.vehicle}</div>
+                  {/* The row's click opens the deal; this button gives keyboards and screen readers the same way in. */}
+                  <button type="button" className="rounded-sm text-left font-medium underline-offset-4 outline-none group-hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                    {deal.vehicle || "Vehicle not entered"}
+                  </button>
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
                     <Badge className={deal.vehicleType === "new" ? tone.positive : tone.neutral}>{deal.vehicleType === "new" ? "New" : "Pre-owned"}</Badge>
                     {deal.affiliateStore && <Badge className={tone.neutral}>Affiliate</Badge>}
@@ -69,7 +74,7 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
                       {!deal.splitCountsForVolume && ", not counted toward volume"}
                     </div>
                   )}
-                  {deal.notes && <div className="mt-0.5 text-xs text-muted-foreground">{deal.notes}</div>}
+                  {deal.notes && <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{deal.notes}</div>}
                 </td>
                 <td className={`max-sm:col-start-1 max-sm:row-start-2 max-sm:text-xs max-sm:text-muted-foreground sm:px-3 sm:text-right sm:align-top ${cell}`}>
                   <span className="sm:hidden">{date}, </span>
@@ -100,12 +105,13 @@ export function DealsTable({ deals, lines, editingId, onEdit }: { deals: Deal[];
                     </div>
                   )}
                 </td>
-                <td className={`text-right whitespace-nowrap max-sm:col-start-2 max-sm:row-start-2 sm:pl-3 sm:align-top ${cell}`}>
+                {/* Clicks here (and inside the delete confirmation, which React bubbles through its portal) stay out of the row's. */}
+                <td className={`text-right whitespace-nowrap max-sm:col-start-2 max-sm:row-start-2 sm:pl-3 sm:align-top ${cell}`} onClick={(e) => e.stopPropagation()}>
                   <div className="-my-1.5 inline-flex sm:-my-1">
-                    <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => onEdit(deal)} aria-label={`Edit deal from ${date}`}>
+                    <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={() => onOpen(deal, { editing: true })} aria-label={`Edit deal from ${date}`}>
                       <Pencil />
                     </Button>
-                    {/* Phones delete from the edit form instead, which keeps rows narrow and the trash away from the thumb. */}
+                    {/* Phones delete from the deal's dialog instead, which keeps rows narrow and the trash away from the thumb. */}
                     <ConfirmDelete
                       className="max-sm:hidden"
                       what={`deal from ${date}`}

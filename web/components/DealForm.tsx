@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { dealCommission, formatCents, parseDollars, type DpbSetting } from "../../shared/commission.ts";
+import { dealCommission, formatCents, parseDollars, type DealLine, type DpbSetting } from "../../shared/commission.ts";
 import { planForDate, type VehicleType } from "../../shared/payplan.ts";
 import { api, type Acquisition, type Deal } from "../api.ts";
 import { useMonthMutation } from "../hooks.ts";
-import { ConfirmDelete, ErrorText, Field, MoneyInput, NativeSelect, PayPreview, PercentInput, SOURCE_LABEL, formatDate, parseSplitPct } from "./common.tsx";
+import { ErrorText, Field, MoneyInput, NativeSelect, PayPreview, PercentInput, SOURCE_LABEL, parseSplitPct } from "./common.tsx";
 import { Button } from "./ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
@@ -13,30 +13,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.tsx";
 
 type Kind = VehicleType | "bought";
 
-/** The main working card: tabs for a sale (new or pre-owned) or a car bought from a customer, then that form. */
+/** The main working card: tabs for a sale (new or pre-owned) or a car bought from a customer, then that form. Saved deals are edited in their dialog. */
 export function LogPanel({
   defaultDate,
   hireDate,
   dpb,
   acquisitionBonusCents,
-  editing,
-  onDone,
   className = "",
 }: {
   defaultDate: string;
   hireDate: string;
   dpb: DpbSetting;
   acquisitionBonusCents: number;
-  editing: Deal | null;
-  onDone: () => void;
   className?: string;
 }) {
-  // Survives saves, so a batch of the same kind needs no re-picking; a new key (month, edit) starts over.
-  const [kind, setKind] = useState<Kind>(editing?.vehicleType ?? "new");
-  const title = editing ? "Edit deal" : kind === "bought" ? "Log a car bought" : "Log a deal";
+  // Survives saves, so a batch of the same kind needs no re-picking; a new key (month) starts over.
+  const [kind, setKind] = useState<Kind>("new");
+  const title = kind === "bought" ? "Log a car bought" : "Log a deal";
 
   return (
-    <Card id="deal-form" className={`scroll-mt-4 ${className}`}>
+    <Card className={className}>
       <CardHeader>
         <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
@@ -46,20 +42,38 @@ export function LogPanel({
           <TabsList className="w-full">
             <TabsTrigger value="new">New</TabsTrigger>
             <TabsTrigger value="used">Pre-owned</TabsTrigger>
-            {/* A sale can't become a car bought, so editing one offers only the sale types. */}
-            {!editing && <TabsTrigger value="bought">Bought</TabsTrigger>}
+            <TabsTrigger value="bought">Bought</TabsTrigger>
           </TabsList>
           {/* One panel whose value follows the tab, so switching New and Pre-owned keeps what's typed. */}
           <TabsContent value={kind}>
             {kind === "bought" ? (
               <CarBoughtForm defaultDate={defaultDate} bonusCents={acquisitionBonusCents} />
             ) : (
-              <DealForm vehicleType={kind} defaultDate={defaultDate} hireDate={hireDate} dpb={dpb} editing={editing} onDone={onDone} />
+              <DealForm vehicleType={kind} defaultDate={defaultDate} hireDate={hireDate} dpb={dpb} editing={null} />
             )}
           </TabsContent>
         </Tabs>
       </CardContent>
     </Card>
+  );
+}
+
+/** Edits a saved deal inside its dialog: the logging form, with New and Pre-owned as tabs (a sale can't become a car bought). */
+export function DealEditor({ deal, hireDate, dpb, onDone }: { deal: Deal; hireDate: string; dpb: DpbSetting; onDone: () => void }) {
+  const [kind, setKind] = useState<VehicleType>(deal.vehicleType);
+  return (
+    <div className="@container">
+      <Tabs value={kind} onValueChange={(v) => setKind(v as VehicleType)} className="gap-5">
+        <TabsList className="w-full">
+          <TabsTrigger value="new">New</TabsTrigger>
+          <TabsTrigger value="used">Pre-owned</TabsTrigger>
+        </TabsList>
+        {/* One panel whose value follows the tab, so switching keeps what's typed. */}
+        <TabsContent value={kind}>
+          <DealForm vehicleType={kind} defaultDate={deal.soldOn} hireDate={hireDate} dpb={dpb} editing={deal} onDone={onDone} />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
@@ -99,12 +113,12 @@ function draftFromDeal(d: Deal): Draft {
   };
 }
 
-function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: { vehicleType: VehicleType; defaultDate: string; hireDate: string; dpb: DpbSetting; editing: Deal | null; onDone: () => void }) {
+/** Logs a new deal (`editing` null) or saves changes to one; `onDone` runs after a save and on Cancel. */
+function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: { vehicleType: VehicleType; defaultDate: string; hireDate: string; dpb: DpbSetting; editing: Deal | null; onDone?: () => void }) {
   const [draft, setDraft] = useState<Draft>(() => (editing ? draftFromDeal(editing) : blankDraft(defaultDate)));
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
   const save = useMonthMutation((body: Parameters<typeof api.createDeal>[0]) => (editing ? api.updateDeal(editing.id, body) : api.createDeal(body)));
-  const remove = useMonthMutation((id: number) => api.deleteDeal(id));
 
   const grossCents = parseDollars(draft.gross);
   const splitPct = draft.split ? parseSplitPct(draft.splitPct) : null;
@@ -152,7 +166,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
           });
           // Keep the date (LogPanel keeps the type): deals usually get entered in batches from the same day.
           setDraft(blankDraft(draft.soldOn));
-          onDone();
+          onDone?.();
         },
       },
     );
@@ -225,32 +239,15 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
       </div>
 
       <div className="col-span-6 grid gap-3">
-        <ErrorText error={save.error ?? remove.error} />
+        <ErrorText error={save.error} />
         <div className="flex gap-2">
           <Button type="submit" disabled={invalid || save.isPending} className="flex-1">
             {save.isPending ? "Saving…" : editing ? "Save changes" : "Add deal"}
           </Button>
           {editing && (
-            <>
-              <Button type="button" variant="outline" onClick={onDone}>
-                Cancel
-              </Button>
-              <ConfirmDelete
-                what={`deal from ${formatDate(editing.soldOn)}`}
-                title="Delete this deal?"
-                description={`${editing.vehicle || "This deal"}${editing.customerName ? ` sold to ${editing.customerName}` : ""} on ${formatDate(editing.soldOn, { month: "long", day: "numeric" })}. Its commission comes off this month.`}
-                confirmLabel="Delete deal"
-                disabled={remove.isPending}
-                onConfirm={() =>
-                  remove.mutate(editing.id, {
-                    onSuccess: () => {
-                      toast("Deal deleted");
-                      onDone();
-                    },
-                  })
-                }
-              />
-            </>
+            <Button type="button" variant="outline" onClick={onDone}>
+              Cancel
+            </Button>
           )}
         </div>
       </div>
@@ -258,9 +255,13 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
   );
 }
 
-function DealPreview({ line, splitWith }: { line: ReturnType<typeof dealCommission> | null; splitWith: string }) {
+function DealPreview({ line, splitWith }: { line: DealLine | null; splitWith: string }) {
   if (!line) return <div className="rounded-lg border border-dashed px-3.5 py-3 text-sm text-muted-foreground">Enter the gross to see what this deal pays.</div>;
+  return <PayPreview label="This deal pays" cents={line.commissionCents} detail={dealMath(line, splitWith)} />;
+}
 
+/** How a deal's pay adds up, in one line: gross (plus DPB) times the rate, the minimum, then any split. */
+export function dealMath(line: DealLine, splitWith: string): string {
   const gross = line.dpbCents ? `(${formatCents(line.grossCents)} + ${formatCents(line.dpbCents, { whole: true })} DPB)` : formatCents(line.grossCents);
   let math = `${gross} × ${line.ratePct}% = ${formatCents(line.rawCommissionCents)}`;
   if (line.minimumApplied) math += `, so the ${formatCents(line.fullCommissionCents, { whole: true })} minimum applies`;
@@ -268,8 +269,7 @@ function DealPreview({ line, splitWith }: { line: ReturnType<typeof dealCommissi
     math += `, minus ${splitWith ? `${splitWith}'s` : "their"} ${line.splitPct}% (${formatCents(line.splitCents)})`;
     if (!line.countsForVolume) math += ". Not counted toward your volume";
   }
-
-  return <PayPreview label="This deal pays" cents={line.commissionCents} detail={math} />;
+  return math;
 }
 
 /** Logs a car bought from a customer: the log card's "Bought" tab. */

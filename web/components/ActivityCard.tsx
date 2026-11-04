@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs.tsx";
 const longDate = { month: "long", day: "numeric" } as const;
 
 /** Everything logged this month, one tab per kind of entry, each with its total. */
-export function ActivityCard({ data, defaultDate, editingId, onEdit, className }: { data: MonthData; defaultDate: string; editingId: number | null; onEdit: (deal: Deal) => void; className?: string }) {
+export function ActivityCard({ data, defaultDate, onOpenDeal, className }: { data: MonthData; defaultDate: string; onOpenDeal: (deal: Deal, opts: { editing: boolean }) => void; className?: string }) {
   const s = data.summary;
   return (
     <Card className={className}>
@@ -34,7 +34,7 @@ export function ActivityCard({ data, defaultDate, editingId, onEdit, className }
 
           <TabsContent value="deals" className="lg:flex lg:min-h-0 lg:flex-col">
             <Total label="Commission this month" cents={s.commissionCents} />
-            <DealsTable deals={data.deals} lines={s.deals} editingId={editingId} onEdit={onEdit} />
+            <DealsTable deals={data.deals} lines={s.deals} onOpen={onOpenDeal} />
           </TabsContent>
           <TabsContent value="bought">
             <Total label={`${formatCents(s.acquisitions.perCarCents, { whole: true })} for each car bought from a customer`} cents={s.acquisitions.bonusCents} />

@@ -14,6 +14,7 @@ import type { Deal } from '../api.ts';
 import { ActivityCard } from '../components/ActivityCard.tsx';
 import { Breakdown } from '../components/Breakdown.tsx';
 import { ErrorText, formatDate, formatMonth } from '../components/common.tsx';
+import { DealDialog } from '../components/DealDialog.tsx';
 import { LogPanel } from '../components/DealForm.tsx';
 import { MonthPicker } from '../components/MonthPicker.tsx';
 import { MonthSettings } from '../components/MonthSettings.tsx';
@@ -28,22 +29,22 @@ export function Dashboard() {
     const requested = params.get('month') ?? '';
     const month = isMonth(requested) ? requested : monthOf(today());
     const { data, error, isPending } = useMonth(month);
-    const [editing, setEditing] = useState<Deal | null>(null);
+    // The deal open in its dialog, by id so it shows the saved row after every edit.
+    const [opened, setOpened] = useState<{
+        id: number;
+        editing: boolean;
+    } | null>(null);
+    const openDeal = (deal: Deal, { editing }: { editing: boolean }) =>
+        setOpened({ id: deal.id, editing });
+    const openedDeal =
+        (opened && data?.deals.find((d) => d.id === opened.id)) || null;
+    const openedLine =
+        (opened && data?.summary.deals.find((l) => l.id === opened.id)) ||
+        null;
 
     const goTo = (m: string) => {
-        setEditing(null);
+        setOpened(null);
         setParams(m === monthOf(today()) ? {} : { month: m });
-    };
-    const edit = (deal: Deal) => {
-        setEditing(deal);
-        // On a phone the form sits far above the list; bring it into view.
-        const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
-            .matches
-            ? 'auto'
-            : 'smooth';
-        document
-            .getElementById('deal-form')
-            ?.scrollIntoView({ block: 'start', behavior: motion });
     };
     // New entries default to today in the current month, otherwise the 1st of the month being viewed.
     const defaultDate =
@@ -109,7 +110,7 @@ export function Dashboard() {
                     <div className='flex flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]'>
                         <div className='contents lg:flex lg:flex-col lg:gap-6'>
                             <LogPanel
-                                key={`${month}:${editing?.id ?? 'new'}`}
+                                key={month}
                                 defaultDate={defaultDate}
                                 hireDate={user.hireDate}
                                 dpb={{
@@ -119,8 +120,6 @@ export function Dashboard() {
                                 acquisitionBonusCents={
                                     data.summary.acquisitions.perCarCents
                                 }
-                                editing={editing}
-                                onDone={() => setEditing(null)}
                             />
                             <MonthSettings
                                 key={`m:${month}`}
@@ -145,8 +144,7 @@ export function Dashboard() {
                                 className='lg:flex-1'
                                 data={data}
                                 defaultDate={defaultDate}
-                                editingId={editing?.id ?? null}
-                                onEdit={edit}
+                                onOpenDeal={openDeal}
                             />
                         </div>
                         <Breakdown
@@ -154,6 +152,20 @@ export function Dashboard() {
                             className='lg:col-span-2'
                         />
                     </div>
+                    <DealDialog
+                        deal={openedDeal}
+                        line={openedLine}
+                        editing={opened?.editing ?? false}
+                        onEditingChange={(editing) =>
+                            setOpened((o) => o && { ...o, editing })
+                        }
+                        onClose={() => setOpened(null)}
+                        hireDate={user.hireDate}
+                        dpb={{
+                            qualified: data.settings.dpbQualified,
+                            perCarCents: data.settings.dpbPerCarCents,
+                        }}
+                    />
                 </>
             )}
         </div>
