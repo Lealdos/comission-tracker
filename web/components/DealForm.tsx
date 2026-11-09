@@ -188,7 +188,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         <Input type="date" required value={draft.soldOn} onChange={(e) => set("soldOn", e.target.value)} />
       </Field>
       <Field label="Gross profit" className="col-span-3" hint="As reported, after the $500 management fee">
-        <MoneyInput required placeholder="0.00" value={draft.gross} onChange={(e) => set("gross", e.target.value)} />
+        <MoneyInput allowNegative required placeholder="0.00" value={draft.gross} onChange={(e) => set("gross", e.target.value)} />
       </Field>
 
       <label className="col-span-6 flex items-start gap-3 text-sm">

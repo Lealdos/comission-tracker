@@ -6,8 +6,8 @@
 
 /* Figtree for the interface; Barlow Semi Condensed, drawn from road signage, only for the check sign and key figures. */
 @theme {
-  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Barlow Semi Condensed", "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Semi Condensed", "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
 
   --text-xs: 0.8125rem;
   --text-xs--line-height: 1.125rem;

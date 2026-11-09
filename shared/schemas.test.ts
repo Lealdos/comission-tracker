@@ -21,3 +21,10 @@ describe("affiliated-store sales", () => {
     expect(dealPatch.parse({ notes: "Delivered Friday" })).toEqual({ notes: "Delivered Friday" });
   });
 });
+
+describe("gross", () => {
+  test("a deal can be logged with a negative gross (it still pays the minimum)", () => {
+    expect(dealBody.parse({ ...sale, grossCents: -1500_00 }).grossCents).toBe(-1500_00);
+    expect(dealPatch.parse({ grossCents: -42_50 })).toEqual({ grossCents: -42_50 });
+  });
+});

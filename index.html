@@ -12,12 +12,90 @@
       } catch (e) {}
       document.documentElement.dataset.theme = saved === "light" || saved === "dark" ? saved : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600&display=swap" rel="stylesheet" />
+    <script>
+      // Asks for the account while the app's JavaScript is still downloading; web/boot.ts hands the response to the
+      // first useMe(). On the dashboard it also asks for the month on screen (GET /api/me?month=), so opening the app
+      // takes one request. The month mirrors Dashboard.tsx: ?month= when valid (isMonth in shared/dates.ts), else this
+      // month in local time (monthOf(today())).
+      try {
+        var month = null;
+        if (location.pathname === "/") {
+          var asked = new URLSearchParams(location.search).get("month") || "";
+          var now = new Date();
+          month = /^\d{4}-(0[1-9]|1[0-2])$/.test(asked) ? asked : now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+        }
+        window.__boot = { month: month, me: fetch(month ? "/api/me?month=" + month : "/api/me", { credentials: "same-origin" }) };
+        // Marks a failure as handled; the app still sees it and asks again.
+        window.__boot.me.catch(function () {});
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <!-- The page's outline, painted from this file before the app's JavaScript runs. App.tsx removes it once it knows who
+         is signed in. It copies the header in App.tsx (Layout, SignMark) and DashboardSkeleton in pages/Dashboard.tsx:
+         change them together. -->
+    <div id="boot-shell">
+      <div class="min-h-screen">
+        <header class="border-b bg-card">
+          <div class="mx-auto flex max-w-6xl items-center gap-1 px-3 py-2 sm:px-6">
+            <span class="mr-2 flex items-center gap-2.5 sm:mr-4">
+              <span aria-hidden="true" class="grid size-8 shrink-0 place-items-center rounded-lg bg-sign p-[3px]">
+                <span class="grid size-full place-items-center rounded-[5px] border-[1.5px] border-white/90 font-display text-[0.8rem] leading-none font-semibold text-white">$</span>
+              </span>
+              <span class="hidden font-semibold sm:inline">Commission Tracker</span>
+            </span>
+            <span class="flex gap-1">
+              <span data-boot-tab="/" class="inline-flex h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground pointer-fine:h-9">Dashboard</span>
+              <span data-boot-tab="/profile" class="inline-flex h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground pointer-fine:h-9">Profile</span>
+            </span>
+            <span class="ml-auto flex items-center gap-1">
+              <span class="size-11 pointer-fine:size-9"></span>
+              <span class="grid size-11 place-items-center pointer-fine:size-9"><span class="size-8 rounded-full bg-positive-soft"></span></span>
+            </span>
+          </div>
+        </header>
+        <main id="boot-dashboard" class="mx-auto max-w-6xl px-3 pt-5 pb-16 sm:px-6 sm:pt-8">
+          <div class="space-y-5 sm:space-y-6" role="status" aria-label="Loading this month">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex min-w-0 items-center">
+                <h1 id="boot-month" class="font-display text-3xl leading-tight font-semibold max-[380px]:text-[1.75rem]">&nbsp;</h1>
+                <span class="-ml-1.5 size-11 pointer-fine:ml-0 pointer-fine:size-9"></span>
+              </div>
+              <div class="flex gap-2">
+                <span class="size-11 animate-pulse rounded-md bg-accent pointer-fine:size-9"></span>
+                <span class="size-11 animate-pulse rounded-md bg-accent pointer-fine:size-9"></span>
+              </div>
+            </div>
+            <div class="h-36 animate-pulse rounded-xl bg-accent sm:h-24"></div>
+            <div class="grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,25rem)_minmax(0,1fr)]">
+              <div class="grid gap-5 sm:gap-6">
+                <div class="h-[40rem] animate-pulse rounded-xl bg-accent"></div>
+                <div class="h-60 animate-pulse rounded-xl bg-accent max-lg:hidden"></div>
+              </div>
+              <div class="grid gap-5 sm:gap-6">
+                <div class="h-72 animate-pulse rounded-xl bg-accent"></div>
+                <div class="h-[38rem] animate-pulse rounded-xl bg-accent"></div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+    <script>
+      // Fits the outline to the page being opened: nothing on the sign-in screens, the header alone on other pages,
+      // and on the dashboard the month's name (formatMonth in components/common.tsx).
+      (function () {
+        var shell = document.getElementById("boot-shell");
+        var path = location.pathname;
+        if (path === "/login" || path === "/signup") return shell.remove();
+        var tab = shell.querySelector('[data-boot-tab="' + path + '"]');
+        if (tab) tab.className = tab.className.replace("text-muted-foreground", "bg-secondary text-foreground");
+        if (path !== "/") return document.getElementById("boot-dashboard").remove();
+        var month = window.__boot && window.__boot.month;
+        if (month) document.getElementById("boot-month").textContent = new Date(month + "-01T00:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", month: "long", year: "numeric" });
+      })();
+    </script>
     <script type="module" src="/web/main.tsx"></script>
   </body>
 </html>

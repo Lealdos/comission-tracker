@@ -1,6 +1,6 @@
 // Login is Neon Auth (Managed Better Auth). The browser talks to it only through /api/auth/*, which
 // this server proxies, so its session cookies are first-party. The proxy also mints a signed
-// session_data cookie, which lets most session checks skip the round trip to Neon (5-minute TTL).
+// session_data cookie, which lets most session checks skip the round trip to Neon (1-hour TTL, see SESSION_CACHE_TTL).
 
 import { handleAuthProxyRequest, NEON_AUTH_SESSION_COOKIE_NAME, parseSessionData } from "@neon/auth/server";
 import type { Context } from "hono";
@@ -19,8 +19,15 @@ export type Account = { id: string; email: string; name: string };
 export type SessionEnv = { Variables: { account: Account } };
 export type AppEnv = { Variables: { account: Account; user: PublicUser } };
 
+/**
+ * How long, in seconds, a session check trusts the signed session_data cookie before asking Neon Auth again.
+ * A miss costs two calls to Neon Auth in a row, so the library's 5 minutes made nearly every app opening pay them.
+ * The trade-off: a session revoked elsewhere (sign-out on another device, password change) keeps working here for up to an hour.
+ */
+const SESSION_CACHE_TTL = 60 * 60;
+
 function proxy(request: Request, path: string): Promise<Response> {
-  return handleAuthProxyRequest({ request, path, baseUrl: baseUrl!, cookieSecret: cookieSecret! });
+  return handleAuthProxyRequest({ request, path, baseUrl: baseUrl!, cookieSecret: cookieSecret!, sessionDataTtl: SESSION_CACHE_TTL });
 }
 
 /** Forwards a Better Auth call (`/api/auth/sign-in/email`, `/api/auth/get-session`, …) to Neon Auth. */

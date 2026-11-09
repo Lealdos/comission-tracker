@@ -1,27 +1,52 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, Moon, Sun } from "lucide-react";
+import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
 import { Link, NavLink, Navigate, Outlet, Route, Routes } from "react-router";
 import type { User } from "./api.ts";
 import { signOut as endSession } from "./auth.ts";
 import { Button } from "./components/ui/button.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./components/ui/dropdown-menu.tsx";
+import { Skeleton } from "./components/ui/skeleton.tsx";
 import { useMe } from "./hooks.ts";
-import { Login, SetupProfile, Signup } from "./pages/Auth.tsx";
 import { Dashboard } from "./pages/Dashboard.tsx";
-import { Profile } from "./pages/Profile.tsx";
 import { setThemePreference, useTheme } from "./theme.ts";
+
+// The dashboard is where the app opens, so it ships with it. The other pages load on first visit: someone signed in
+// never needs the sign-in screens, and the profile page waits until it's opened.
+const authPages = () => import("./pages/Auth.tsx");
+const profilePage = () => import("./pages/Profile.tsx");
+const Login = lazy(() => authPages().then((m) => ({ default: m.Login })));
+const Signup = lazy(() => authPages().then((m) => ({ default: m.Signup })));
+const SetupProfile = lazy(() => authPages().then((m) => ({ default: m.SetupProfile })));
+const Profile = lazy(() => profilePage().then((m) => ({ default: m.Profile })));
+
+// Opening a sign-in screen directly: download it alongside the session check instead of after it.
+if (location.pathname === "/login" || location.pathname === "/signup") void authPages().catch(() => {});
 
 export function App() {
   const me = useMe();
-  if (me.isPending) return <p className="py-24 text-center text-sm text-muted-foreground">Loading…</p>;
+
+  // Until the account arrives, the outline painted from index.html (#boot-shell) stays on screen; it goes in the
+  // same frame the app's first real screen is committed, so nothing flashes in between.
+  const settled = !me.isPending;
+  useLayoutEffect(() => {
+    if (settled) document.getElementById("boot-shell")?.remove();
+  }, [settled]);
+
+  if (me.isPending) return null;
   if (me.isError) return <p className="py-24 text-center text-sm text-destructive">Couldn't reach the server. Is it running?</p>;
-  if (me.data && !me.data.user) return <SetupProfile account={me.data.account} />;
+  if (me.data && !me.data.user)
+    return (
+      <Suspense fallback={null}>
+        <SetupProfile account={me.data.account} />
+      </Suspense>
+    );
   const user = me.data?.user;
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-      <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
+      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Suspense fallback={null}><Login /></Suspense>} />
+      <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Suspense fallback={null}><Signup /></Suspense>} />
       <Route element={user ? <Layout user={user} /> : <Navigate to="/login" replace />}>
         <Route index element={<Dashboard />} />
         <Route path="profile" element={<Profile />} />
@@ -41,6 +66,12 @@ export function SignMark({ className = "" }: { className?: string }) {
 }
 
 function Layout({ user }: { user: User }) {
+  // Fetch the profile page once the dashboard has settled, so opening it later doesn't wait on the download.
+  useEffect(() => {
+    const timer = setTimeout(() => void profilePage().catch(() => {}), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const tab = ({ isActive }: { isActive: boolean }) =>
     `inline-flex h-11 items-center rounded-md px-3 text-sm font-medium transition-colors pointer-fine:h-9 ${isActive ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`;
 
@@ -67,8 +98,20 @@ function Layout({ user }: { user: User }) {
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-3 pt-5 pb-16 sm:px-6 sm:pt-8">
-        <Outlet />
+        {/* A page still downloading (Profile) fills only this area, so the header stays put. */}
+        <Suspense fallback={<PageSkeleton />}>
+          <Outlet />
+        </Suspense>
       </main>
+    </div>
+  );
+}
+
+function PageSkeleton() {
+  return (
+    <div className="space-y-5 sm:space-y-6" role="status" aria-label="Loading">
+      <Skeleton className="h-9 w-48" />
+      <Skeleton className="h-72 rounded-xl" />
     </div>
   );
 }

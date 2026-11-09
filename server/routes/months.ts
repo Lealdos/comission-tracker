@@ -4,46 +4,52 @@ import { monthSummary } from "../../shared/commission.ts";
 import { monthParam, monthSettingsBody } from "../../shared/schemas.ts";
 import { requireUser, type AppEnv } from "../auth.ts";
 import { prisma } from "../db/client.ts";
-import { inMonth, serializeAcquisition, serializeDeal, serializeSpiff } from "../serialize.ts";
+import { inMonth, serializeAcquisition, serializeDeal, serializeSpiff, type PublicUser } from "../serialize.ts";
 import { validate } from "../validate.ts";
 
 const params = z.object({ month: monthParam });
 
+/**
+ * Everything the dashboard needs for one month: the logged rows plus the computed pay summary.
+ * `GET /api/months/:month` answers with it, and `GET /api/me?month=` includes it so the first page load needs one request.
+ */
+export async function loadMonth(user: PublicUser, month: string) {
+  const days = inMonth(month);
+
+  const [dealRows, acquisitionRows, spiffRows, settingsRow] = await Promise.all([
+    prisma.deal.findMany({ where: { userId: user.id, soldOn: days }, orderBy: [{ soldOn: "asc" }, { id: "asc" }] }),
+    prisma.acquisition.findMany({ where: { userId: user.id, acquiredOn: days }, orderBy: [{ acquiredOn: "asc" }, { id: "asc" }] }),
+    prisma.spiff.findMany({ where: { userId: user.id, paidOn: days }, orderBy: [{ paidOn: "asc" }, { id: "asc" }] }),
+    prisma.monthSetting.findUnique({ where: { userId_month: { userId: user.id, month } } }),
+  ]);
+
+  const deals = dealRows.map(serializeDeal);
+  const spiffs = spiffRows.map(serializeSpiff);
+  const settings = {
+    dpbQualified: settingsRow?.dpbQualified ?? false,
+    dpbPerCarCents: settingsRow?.dpbPerCarCents ?? 0,
+    drawOverrideCents: settingsRow?.drawOverrideCents ?? null,
+  };
+
+  const summary = monthSummary({
+    month,
+    hireDate: user.hireDate,
+    deals,
+    acquisitionCount: acquisitionRows.length,
+    spiffCents: spiffs.map((s) => s.amountCents),
+    dpb: { qualified: settings.dpbQualified, perCarCents: settings.dpbPerCarCents },
+    drawOverrideCents: settings.drawOverrideCents,
+  });
+
+  return { summary, settings, deals, acquisitions: acquisitionRows.map(serializeAcquisition), spiffs };
+}
+
 export const monthRoutes = new Hono<AppEnv>()
   .use(requireUser)
 
-  /** Everything the dashboard needs for one month: the logged rows plus the computed pay summary. */
   .get("/:month", validate("param", params), async (c) => {
     const { month } = c.req.valid("param");
-    const user = c.get("user");
-    const days = inMonth(month);
-
-    const [dealRows, acquisitionRows, spiffRows, settingsRow] = await Promise.all([
-      prisma.deal.findMany({ where: { userId: user.id, soldOn: days }, orderBy: [{ soldOn: "asc" }, { id: "asc" }] }),
-      prisma.acquisition.findMany({ where: { userId: user.id, acquiredOn: days }, orderBy: [{ acquiredOn: "asc" }, { id: "asc" }] }),
-      prisma.spiff.findMany({ where: { userId: user.id, paidOn: days }, orderBy: [{ paidOn: "asc" }, { id: "asc" }] }),
-      prisma.monthSetting.findUnique({ where: { userId_month: { userId: user.id, month } } }),
-    ]);
-
-    const deals = dealRows.map(serializeDeal);
-    const spiffs = spiffRows.map(serializeSpiff);
-    const settings = {
-      dpbQualified: settingsRow?.dpbQualified ?? false,
-      dpbPerCarCents: settingsRow?.dpbPerCarCents ?? 0,
-      drawOverrideCents: settingsRow?.drawOverrideCents ?? null,
-    };
-
-    const summary = monthSummary({
-      month,
-      hireDate: user.hireDate,
-      deals,
-      acquisitionCount: acquisitionRows.length,
-      spiffCents: spiffs.map((s) => s.amountCents),
-      dpb: { qualified: settings.dpbQualified, perCarCents: settings.dpbPerCarCents },
-      drawOverrideCents: settings.drawOverrideCents,
-    });
-
-    return c.json({ summary, settings, deals, acquisitions: acquisitionRows.map(serializeAcquisition), spiffs });
+    return c.json(await loadMonth(c.get("user"), month));
   })
 
   .put("/:month/settings", validate("param", params), validate("json", monthSettingsBody), async (c) => {

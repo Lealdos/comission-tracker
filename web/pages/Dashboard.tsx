@@ -210,6 +210,7 @@ function CheckSign({ summary: s }: { summary: MonthSummary }) {
     );
 }
 
+/** index.html paints a copy of this (#boot-shell) before the app loads: change the two together. */
 function DashboardSkeleton() {
     return (
         <div

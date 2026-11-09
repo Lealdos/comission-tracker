@@ -5,6 +5,10 @@ import { BrowserRouter } from "react-router";
 import { ApiError } from "./api.ts";
 import { App } from "./App.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
+// Fonts ship with the app (same origin, font-display: swap) instead of a render-blocking Google Fonts stylesheet.
+import "@fontsource-variable/figtree";
+import "@fontsource/barlow-semi-condensed/latin-500.css";
+import "@fontsource/barlow-semi-condensed/latin-600.css";
 import "./index.css";
 
 // A 401 from any request means the session ended (expired or signed out elsewhere): drop back to sign-in.

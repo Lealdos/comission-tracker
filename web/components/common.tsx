@@ -30,13 +30,26 @@ export function Field({ label, hint, children, group, className = "" }: { label:
   );
 }
 
-export function MoneyInput({ className = "", ...props }: Omit<ComponentProps<"input">, "type">) {
+/**
+ * A dollar amount. `allowNegative` (a deal's gross) makes it a number field: the decimal keypad phones show
+ * otherwise has no minus key on iPhone, while a number field brings up one with both "-" and ".".
+ */
+export function MoneyInput({ className = "", allowNegative = false, ...props }: Omit<ComponentProps<"input">, "type"> & { allowNegative?: boolean }) {
+  const keyboard: ComponentProps<"input"> = allowNegative
+    ? // step="any" leaves the cents check to parseDollars; blurring on wheel keeps a scroll from changing the amount.
+      { type: "number", step: "any", onWheel: (e) => e.currentTarget.blur() }
+    : { inputMode: "decimal" };
   return (
     <div className="relative">
       <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
         $
       </span>
-      <Input inputMode="decimal" autoComplete="off" {...props} className={`pl-7 tabular-nums ${className}`} />
+      <Input
+        autoComplete="off"
+        {...keyboard}
+        {...props}
+        className={`pl-7 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${className}`}
+      />
     </div>
   );
 }
