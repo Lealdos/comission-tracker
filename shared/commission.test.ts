@@ -17,6 +17,7 @@ function deal(vehicleType: "new" | "used", grossDollars: number, extra: Partial<
     splitPct: null,
     splitCountsForVolume: true,
     unitBonusCents: 0,
+    unitBonusShared: false,
     ...extra,
   };
 }
@@ -85,10 +86,27 @@ describe("unit bonus", () => {
     expect(line.payCents).toBe(200_00 + 150_00);
   });
 
-  test("isn't split: it's entered as what this salesperson gets", () => {
+  test("on a split deal it's all this salesperson's unless it was for both", () => {
     const line = dealCommission(plan, deal("new", 3000, { splitPct: 50, unitBonusCents: 200_00 }), HIRE, NO_DPB);
     expect(line.commissionCents).toBe(240_00);
+    expect(line.unitBonusCents).toBe(200_00);
+    expect(line.unitBonusSplitCents).toBe(0);
     expect(line.payCents).toBe(440_00);
+  });
+
+  test("a bonus for both is split by the same percent, rounded to the cent", () => {
+    // 30% of $333.33 goes to the other salesperson: 70% is $233.331 -> $233.33.
+    const line = dealCommission(plan, deal("new", 3000, { splitPct: 30, unitBonusCents: 333_33, unitBonusShared: true }), HIRE, NO_DPB);
+    expect(line.commissionCents).toBe(336_00);
+    expect(line.unitBonusCents).toBe(233_33);
+    expect(line.unitBonusSplitCents).toBe(100_00);
+    expect(line.payCents).toBe(336_00 + 233_33);
+  });
+
+  test("a shared bonus on a deal that isn't split stays whole", () => {
+    const line = dealCommission(plan, deal("new", 3000, { unitBonusCents: 200_00, unitBonusShared: true }), HIRE, NO_DPB);
+    expect(line.unitBonusCents).toBe(200_00);
+    expect(line.unitBonusSplitCents).toBe(0);
   });
 
   test("a deal without one pays its commission", () => {

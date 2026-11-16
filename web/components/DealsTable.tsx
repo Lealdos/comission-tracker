@@ -147,6 +147,8 @@ export function DealsTable({
                                     {deal.splitPct !== null && (
                                         <div className='mt-0.5 text-xs text-muted-foreground'>
                                             {deal.splitPct}% to {deal.splitWith}
+                                            {deal.unitBonusShared &&
+                                                ', bonus shared'}
                                             {!deal.splitCountsForVolume &&
                                                 ', not counted toward volume'}
                                         </div>

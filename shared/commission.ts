@@ -13,8 +13,10 @@ export interface DealInput {
   splitPct: number | null;
   /** Whether a split deal still counts toward the volume bonus. An unsplit deal always does. */
   splitCountsForVolume: boolean;
-  /** A one-off bonus for this particular car, entered as what this salesperson gets; 0 when there's none. */
+  /** A one-off bonus for this particular car, the whole amount; 0 when there's none. */
   unitBonusCents: number;
+  /** On a split deal, whether the unit bonus was for both salespeople (then it's split too) or all this salesperson's. */
+  unitBonusShared: boolean;
 }
 
 /** A car bought from a customer: the plan's flat bonus, plus any bonus for that particular car. */
@@ -46,9 +48,11 @@ export interface DealLine {
   splitCents: number;
   /** What this salesperson is paid in commission: the full commission minus the split. */
   commissionCents: number;
-  /** Paid in full on top of the commission: not run through the rate or the minimum, and not split. */
+  /** This salesperson's part of the unit bonus, on top of the commission: not run through the rate or the minimum. */
   unitBonusCents: number;
-  /** Everything this deal pays this salesperson: commission plus unit bonus. */
+  /** The other salesperson's part of the unit bonus, when it was for both of them. */
+  unitBonusSplitCents: number;
+  /** Everything this deal pays this salesperson: commission plus their part of the unit bonus. */
   payCents: number;
   countsForVolume: boolean;
 }
@@ -65,11 +69,13 @@ export function dealRatePct(plan: PayPlan, vehicleType: VehicleType, hireDate: s
 /**
  * What a deal pays this salesperson. A sale at an affiliated store pays on this plan like any other, so it isn't an input here.
  * A split takes the other salesperson's percent off the whole deal's commission, after the minimum and the DPB
- * (so a 50% split of a minimum deal pays half the minimum). A unit bonus is added after all of that, untouched.
+ * (so a 50% split of a minimum deal pays half the minimum). A unit bonus is added after all of that: whole, or split by
+ * the same percent when the salesperson says it was for both of them.
  */
 export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string, dpb: DpbSetting): DealLine {
   const whole = wholeDealCommission(plan, deal, hireDate, dpb);
-  const keptCents = deal.splitPct === null ? whole.fullCommissionCents : Math.round((whole.fullCommissionCents * (100 - deal.splitPct)) / 100);
+  const keptCents = keptShare(whole.fullCommissionCents, deal.splitPct);
+  const keptBonusCents = deal.unitBonusShared ? keptShare(deal.unitBonusCents, deal.splitPct) : deal.unitBonusCents;
   return {
     id: deal.id,
     soldOn: deal.soldOn,
@@ -79,10 +85,16 @@ export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string,
     splitPct: deal.splitPct,
     splitCents: whole.fullCommissionCents - keptCents,
     commissionCents: keptCents,
-    unitBonusCents: deal.unitBonusCents,
-    payCents: keptCents + deal.unitBonusCents,
+    unitBonusCents: keptBonusCents,
+    unitBonusSplitCents: deal.unitBonusCents - keptBonusCents,
+    payCents: keptCents + keptBonusCents,
     countsForVolume: deal.splitPct === null || deal.splitCountsForVolume,
   };
+}
+
+/** What this salesperson keeps of `cents` once the other salesperson's percent comes off, rounded to the cent. */
+function keptShare(cents: number, splitPct: number | null): number {
+  return splitPct === null ? cents : Math.round((cents * (100 - splitPct)) / 100);
 }
 
 function wholeDealCommission(plan: PayPlan, deal: DealInput, hireDate: string, dpb: DpbSetting) {

@@ -108,8 +108,20 @@ await prisma.user.create({
         ...deals(thisMonth, thisMonthSales),
         // Sold at an affiliated store: paid on this plan and counted toward volume like any other deal.
         { soldOn: on(thisMonth, 16), vehicleType: "new", grossCents: 1800_00, customerName: "Carlos Mendez", vehicle: "2026 Kona SEL", affiliateStore: true, affiliateStoreName: "Germain Toyota" },
-        // Split 50/50 and the unit left to the other salesperson: it pays half and doesn't change this month's units.
-        { soldOn: on(thisMonth, 20), vehicleType: "new", grossCents: 2400_00, customerName: "Nina Alvarez", vehicle: "2026 Santa Fe XRT", stockNumber: "H6177", splitPct: 50, splitWith: "Chris Dalton", splitCountsForVolume: false },
+        // Split 50/50, the unit left to the other salesperson and its unit bonus shared: it pays half of both and doesn't change this month's units.
+        {
+          soldOn: on(thisMonth, 20),
+          vehicleType: "new",
+          grossCents: 2400_00,
+          customerName: "Nina Alvarez",
+          vehicle: "2026 Santa Fe XRT",
+          stockNumber: "H6177",
+          splitPct: 50,
+          splitWith: "Chris Dalton",
+          splitCountsForVolume: false,
+          unitBonusCents: 200_00,
+          unitBonusShared: true,
+        },
       ],
     },
     acquisitions: {
