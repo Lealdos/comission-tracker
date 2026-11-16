@@ -1,7 +1,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { monthOf, today } from "../../shared/dates.ts";
-import { formatDate, formatMonth } from "./common.tsx";
+import { formatDate, formatMonth } from "../format.ts";
 import { Button } from "./ui/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.tsx";
 

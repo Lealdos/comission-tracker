@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { formatCents, type MonthSummary } from "../../shared/commission.ts";
-import { Money, formatDate } from "./common.tsx";
+import { formatDate } from "../format.ts";
+import { Money } from "./common.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card.tsx";
 
 function Row({ label, detail, cents, strong, negative }: { label: ReactNode; detail?: ReactNode; cents: number; strong?: boolean; negative?: boolean }) {
@@ -16,6 +17,10 @@ function Row({ label, detail, cents, strong, negative }: { label: ReactNode; det
       </span>
     </div>
   );
+}
+
+function unitBonusDetail({ deals, carsBought }: MonthSummary["unitBonuses"]): string {
+  return [deals && `${deals} ${deals === 1 ? "deal" : "deals"}`, carsBought && `${carsBought} ${carsBought === 1 ? "car" : "cars"} bought`].filter(Boolean).join(", ");
 }
 
 /** Line-by-line path from the month's activity to the commission check, so it can be compared with the dealership's sheet. */
@@ -52,6 +57,7 @@ export function Breakdown({ summary: s, className }: { summary: MonthSummary; cl
             <Row label="Commission" detail={commissionDetail} cents={s.commissionCents} />
             <Row label="Volume bonus" detail={`${s.units.total} units`} cents={s.volume.bonusCents} />
             <Row label="Cars bought" detail={`${s.acquisitions.count} × ${formatCents(s.acquisitions.perCarCents, { whole: true })}`} cents={s.acquisitions.bonusCents} />
+            {s.unitBonuses.totalCents > 0 && <Row label="Unit bonuses" detail={unitBonusDetail(s.unitBonuses)} cents={s.unitBonuses.totalCents} />}
             <Row label="Spiffs & incentives" cents={s.spiffsCents} />
           </div>
           <div className="divide-y">

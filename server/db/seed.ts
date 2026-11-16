@@ -47,15 +47,15 @@ async function demoAccountId(): Promise<string> {
   return user.id;
 }
 
-type Sale = [day: number, type: "new" | "used", gross: number, customer: string, vehicle: string, stock: string];
+type Sale = [day: number, type: "new" | "used", gross: number, customer: string, vehicle: string, stock: string, unitBonus?: number];
 
 // Gross in dollars as the dealership reports it, already net of the $500 management fee.
-// Includes a deal at the minimum and one with negative gross; with the affiliate sale below, this month reaches the first volume milestone (13).
+// Includes a deal at the minimum, one with negative gross and one with a unit bonus; with the affiliate sale below, this month reaches the first volume milestone (13).
 const thisMonthSales: Sale[] = [
   [2, "new", 2350, "Maria Lopez", "2026 Tucson SEL", "H6102"],
   [3, "used", 2900, "James Carter", "2022 Honda Civic EX", "U2214"],
   [4, "new", 700, "Ana Torres", "2026 Elantra SE", "H6118"],
-  [6, "new", 3600, "Robert Kim", "2026 Palisade Calligraphy", "H6125"],
+  [6, "new", 3600, "Robert Kim", "2026 Palisade Calligraphy", "H6125", 300],
   [7, "used", 1400, "Linda Nguyen", "2021 Toyota RAV4 XLE", "U2230"],
   [9, "new", 1800, "David Brooks", "2026 Santa Fe SEL", "H6131"],
   [10, "new", 150, "Sofia Ramirez", "2026 Venue SE", "H6140"],
@@ -81,7 +81,15 @@ const lastMonthSales: Sale[] = [
 ];
 
 const deals = (month: string, sales: Sale[]) =>
-  sales.map(([day, vehicleType, gross, customerName, vehicle, stockNumber]) => ({ soldOn: on(month, day), vehicleType, grossCents: gross * 100, customerName, vehicle, stockNumber }));
+  sales.map(([day, vehicleType, gross, customerName, vehicle, stockNumber, unitBonus = 0]) => ({
+    soldOn: on(month, day),
+    vehicleType,
+    grossCents: gross * 100,
+    customerName,
+    vehicle,
+    stockNumber,
+    unitBonusCents: unitBonus * 100,
+  }));
 
 const authUserId = await demoAccountId();
 
@@ -108,7 +116,7 @@ await prisma.user.create({
       create: [
         { acquiredOn: on(lastMonth, 12), source: "service_drive", customerName: "George Allen", vehicle: "2018 Hyundai Sonata" },
         { acquiredOn: on(thisMonth, 8), source: "service_drive", customerName: "Thomas Reed", vehicle: "2019 Toyota Camry" },
-        { acquiredOn: on(thisMonth, 18), source: "off_street", customerName: "Priya Shah", vehicle: "2017 Honda Accord" },
+        { acquiredOn: on(thisMonth, 18), source: "off_street", customerName: "Priya Shah", vehicle: "2017 Honda Accord", unitBonusCents: 100_00 },
       ],
     },
     spiffs: {

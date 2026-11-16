@@ -4,8 +4,9 @@ import { toast } from "sonner";
 import { formatCents, type DealLine, type DpbSetting } from "../../shared/commission.ts";
 import { api, type Deal } from "../api.ts";
 import { useMonthMutation } from "../hooks.ts";
-import { ConfirmDelete, ErrorText, Money, PayPreview, formatDate, tone } from "./common.tsx";
-import { DealEditor, dealMath } from "./DealForm.tsx";
+import { ConfirmDelete, ErrorText, Money, PayPreview } from "./common.tsx";
+import { dealDeleteDescription, dealMath, formatDate, tone } from "../format.ts";
+import { DealEditor } from "./DealForm.tsx";
 import { Badge } from "./ui/badge.tsx";
 import { Button } from "./ui/button.tsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog.tsx";
@@ -77,11 +78,12 @@ function DealDetails({ deal, line, onEdit, onDeleted }: { deal: Deal; line: Deal
           <Badge className={deal.vehicleType === "new" ? tone.positive : tone.neutral}>{deal.vehicleType === "new" ? "New" : "Pre-owned"}</Badge>
           {deal.affiliateStore && <Badge className={tone.neutral}>Affiliate</Badge>}
           {deal.splitPct !== null && <Badge className={tone.neutral}>Split</Badge>}
+          {deal.unitBonusCents > 0 && <Badge className={tone.positive}>Unit bonus</Badge>}
           {line?.minimumApplied && <Badge className={tone.warning}>Minimum</Badge>}
         </div>
       </DialogHeader>
 
-      {line && <PayPreview label="This deal pays" cents={line.commissionCents} detail={dealMath(line, deal.splitWith)} />}
+      {line && <PayPreview label="This deal pays" cents={line.payCents} detail={dealMath(line, deal.splitWith)} />}
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <Item label="Customer">{deal.customerName || missing}</Item>
@@ -92,6 +94,11 @@ function DealDetails({ deal, line, onEdit, onDeleted }: { deal: Deal; line: Deal
           {!!line?.dpbCents && <span className="text-positive"> + {formatCents(line.dpbCents, { whole: true })} DPB</span>}
         </Item>
         {line && <Item label="Rate">{line.ratePct}%</Item>}
+        {deal.unitBonusCents > 0 && (
+          <Item label="Unit bonus">
+            <Money cents={deal.unitBonusCents} />
+          </Item>
+        )}
         {deal.affiliateStore && <Item label="Sold at">{deal.affiliateStoreName || missing}</Item>}
         {deal.splitPct !== null && (
           <Item label="Split" wide>
@@ -111,7 +118,7 @@ function DealDetails({ deal, line, onEdit, onDeleted }: { deal: Deal; line: Deal
           label="Delete"
           what={`deal from ${formatDate(deal.soldOn)}`}
           title="Delete this deal?"
-          description={`${deal.vehicle || "This deal"}${deal.customerName ? ` sold to ${deal.customerName}` : ""} on ${formatDate(deal.soldOn, { month: "long", day: "numeric" })}.${line ? ` Its ${formatCents(line.commissionCents)} commission comes off this month.` : ""}`}
+          description={dealDeleteDescription(deal, line)}
           confirmLabel="Delete deal"
           disabled={remove.isPending}
           onConfirm={() =>

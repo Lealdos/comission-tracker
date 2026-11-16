@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { dealBody, dealPatch } from "./schemas.ts";
+import { acquisitionBody, dealBody, dealPatch } from "./schemas.ts";
 
 const sale = { soldOn: "2026-06-15", vehicleType: "new", grossCents: 3000_00, customerName: "Ana Ruiz", vehicle: "2026 Tucson SEL" } as const;
 
@@ -26,5 +26,27 @@ describe("gross", () => {
   test("a deal can be logged with a negative gross (it still pays the minimum)", () => {
     expect(dealBody.parse({ ...sale, grossCents: -1500_00 }).grossCents).toBe(-1500_00);
     expect(dealPatch.parse({ grossCents: -42_50 })).toEqual({ grossCents: -42_50 });
+  });
+});
+
+describe("unit bonus", () => {
+  const carBought = { acquiredOn: "2026-06-15", source: "service_drive", customerName: "Ana Ruiz", vehicle: "2019 Camry" } as const;
+
+  test("deals and cars bought have none unless one is sent", () => {
+    expect(dealBody.parse(sale).unitBonusCents).toBe(0);
+    expect(acquisitionBody.parse(carBought).unitBonusCents).toBe(0);
+    expect(dealBody.parse({ ...sale, unitBonusCents: 300_00 }).unitBonusCents).toBe(300_00);
+    expect(acquisitionBody.parse({ ...carBought, unitBonusCents: 100_00 }).unitBonusCents).toBe(100_00);
+  });
+
+  test("can't be negative or fractional cents", () => {
+    expect(dealBody.safeParse({ ...sale, unitBonusCents: -1 }).success).toBe(false);
+    expect(dealBody.safeParse({ ...sale, unitBonusCents: 10.5 }).success).toBe(false);
+    expect(acquisitionBody.safeParse({ ...carBought, unitBonusCents: -100 }).success).toBe(false);
+  });
+
+  test("a PATCH that doesn't send it leaves it alone", () => {
+    expect(dealPatch.parse({ notes: "x" })).toEqual({ notes: "x" });
+    expect(dealPatch.parse({ unitBonusCents: 0 })).toEqual({ unitBonusCents: 0 });
   });
 });

@@ -13,6 +13,13 @@ export interface DealInput {
   splitPct: number | null;
   /** Whether a split deal still counts toward the volume bonus. An unsplit deal always does. */
   splitCountsForVolume: boolean;
+  /** A one-off bonus for this particular car, entered as what this salesperson gets; 0 when there's none. */
+  unitBonusCents: number;
+}
+
+/** A car bought from a customer: the plan's flat bonus, plus any bonus for that particular car. */
+export interface AcquisitionInput {
+  unitBonusCents: number;
 }
 
 export interface DpbSetting {
@@ -37,8 +44,12 @@ export interface DealLine {
   splitPct: number | null;
   /** The other salesperson's part of the full commission. */
   splitCents: number;
-  /** What this salesperson is paid: the full commission minus the split. */
+  /** What this salesperson is paid in commission: the full commission minus the split. */
   commissionCents: number;
+  /** Paid in full on top of the commission: not run through the rate or the minimum, and not split. */
+  unitBonusCents: number;
+  /** Everything this deal pays this salesperson: commission plus unit bonus. */
+  payCents: number;
   countsForVolume: boolean;
 }
 
@@ -54,7 +65,7 @@ export function dealRatePct(plan: PayPlan, vehicleType: VehicleType, hireDate: s
 /**
  * What a deal pays this salesperson. A sale at an affiliated store pays on this plan like any other, so it isn't an input here.
  * A split takes the other salesperson's percent off the whole deal's commission, after the minimum and the DPB
- * (so a 50% split of a minimum deal pays half the minimum).
+ * (so a 50% split of a minimum deal pays half the minimum). A unit bonus is added after all of that, untouched.
  */
 export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string, dpb: DpbSetting): DealLine {
   const whole = wholeDealCommission(plan, deal, hireDate, dpb);
@@ -68,6 +79,8 @@ export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string,
     splitPct: deal.splitPct,
     splitCents: whole.fullCommissionCents - keptCents,
     commissionCents: keptCents,
+    unitBonusCents: deal.unitBonusCents,
+    payCents: keptCents + deal.unitBonusCents,
     countsForVolume: deal.splitPct === null || deal.splitCountsForVolume,
   };
 }
@@ -120,7 +133,7 @@ export interface MonthInput {
   month: string;
   hireDate: string;
   deals: DealInput[];
-  acquisitionCount: number;
+  acquisitions: AcquisitionInput[];
   spiffCents: number[];
   dpb: DpbSetting;
   /** Total draws actually paid, when it differs from the schedule. */
@@ -144,9 +157,13 @@ export function monthSummary(input: MonthInput) {
   const commissionCents = sum(deals.map((d) => d.commissionCents));
   const dpbAddedCents = sum(deals.map((d) => d.dpbCents));
   const volumeCents = volumeBonusCents(plan, units.total);
-  const acquisitionCents = input.acquisitionCount * plan.acquisitionBonusCents;
+  const acquisitionCents = input.acquisitions.length * plan.acquisitionBonusCents;
+  // One-off bonuses on particular cars, sold or bought: their own line, so the plan's lines still match the dealership's sheet.
+  const dealUnitBonuses = deals.filter((d) => d.unitBonusCents > 0);
+  const carUnitBonuses = input.acquisitions.filter((a) => a.unitBonusCents > 0);
+  const unitBonusCents = sum(dealUnitBonuses.map((d) => d.unitBonusCents)) + sum(carUnitBonuses.map((a) => a.unitBonusCents));
   const spiffsCents = sum(input.spiffCents);
-  const earningsCents = commissionCents + volumeCents + acquisitionCents + spiffsCents;
+  const earningsCents = commissionCents + volumeCents + acquisitionCents + unitBonusCents + spiffsCents;
 
   const drawWeeks = scheduledDraws(plan, input.month, input.hireDate);
   const scheduledDrawCents = sum(drawWeeks.map((w) => w.cents));
@@ -164,7 +181,8 @@ export function monthSummary(input: MonthInput) {
       milestones: plan.volumeMilestones.map((m) => ({ ...m, reached: units.total >= m.units })),
       next: nextMilestone(plan, units.total),
     },
-    acquisitions: { count: input.acquisitionCount, perCarCents: plan.acquisitionBonusCents, bonusCents: acquisitionCents },
+    acquisitions: { count: input.acquisitions.length, perCarCents: plan.acquisitionBonusCents, bonusCents: acquisitionCents },
+    unitBonuses: { deals: dealUnitBonuses.length, carsBought: carUnitBonuses.length, totalCents: unitBonusCents },
     spiffsCents,
     earningsCents,
     draws: { weeks: drawWeeks, maxWeeks: plan.draw.maxWeeksPerMonth, scheduledCents: scheduledDrawCents, overridden: input.drawOverrideCents !== null, totalCents: drawCents },

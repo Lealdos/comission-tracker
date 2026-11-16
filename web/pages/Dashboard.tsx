@@ -13,7 +13,8 @@ import {
 import type { Deal } from '../api.ts';
 import { ActivityCard } from '../components/ActivityCard.tsx';
 import { Breakdown } from '../components/Breakdown.tsx';
-import { ErrorText, formatDate, formatMonth } from '../components/common.tsx';
+import { ErrorText } from '../components/common.tsx';
+import { formatDate, formatMonth } from '../format.ts';
 import { DealDialog } from '../components/DealDialog.tsx';
 import { LogPanel } from '../components/DealForm.tsx';
 import { MonthPicker } from '../components/MonthPicker.tsx';

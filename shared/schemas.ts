@@ -18,6 +18,8 @@ export const profileBody = profileCreateBody.partial();
 /** Who the customer was and which vehicle are required on every deal and car bought, so each one can be traced later. */
 const customerName = z.string().trim().min(1, "Enter the customer's name").max(200);
 const vehicle = z.string().trim().min(1, "Enter the vehicle").max(200);
+/** A one-off bonus for one particular car, sold or bought, paid on top of the plan; 0 when there's none. */
+const unitBonusCents = z.number().int().min(0, "A unit bonus can't be negative").max(100_000_00);
 
 const dealFields = z.object({
   soldOn: isoDate,
@@ -34,6 +36,7 @@ const dealFields = z.object({
   splitPct: z.number().int().min(1, "A split gives away 1% to 99%").max(99, "A split gives away 1% to 99%").nullable(),
   splitWith: z.string().trim().max(200),
   splitCountsForVolume: z.boolean(),
+  unitBonusCents,
   notes: z.string().trim().max(2000),
 });
 
@@ -63,6 +66,7 @@ export const dealBody = dealFields
     splitPct: dealFields.shape.splitPct.default(null),
     splitWith: dealFields.shape.splitWith.default(""),
     splitCountsForVolume: dealFields.shape.splitCountsForVolume.default(true),
+    unitBonusCents: unitBonusCents.default(0),
     notes: dealFields.shape.notes.default(""),
   })
   .refine(namesStore, storeMissing)
@@ -81,6 +85,7 @@ export const acquisitionBody = z.object({
   source: z.enum(["off_street", "service_drive"]),
   customerName,
   vehicle,
+  unitBonusCents: unitBonusCents.default(0),
 });
 
 export const spiffBody = z.object({

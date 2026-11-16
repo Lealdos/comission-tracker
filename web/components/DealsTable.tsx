@@ -1,15 +1,10 @@
 import { Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatCents, type DealLine } from '../../shared/commission.ts';
+import { type DealLine } from '../../shared/commission.ts';
 import { api, type Deal } from '../api.ts';
+import { dealDeleteDescription, formatDate, tone } from '../format.ts';
 import { useMonthMutation } from '../hooks.ts';
-import {
-    ConfirmDelete,
-    EmptyNote,
-    Money,
-    formatDate,
-    tone,
-} from './common.tsx';
+import { ConfirmDelete, EmptyNote, Money } from './common.tsx';
 import { Badge } from './ui/badge.tsx';
 import { Button } from './ui/button.tsx';
 
@@ -215,6 +210,13 @@ export function DealsTable({
                                             />
                                         </div>
                                     )}
+                                    {!!line?.unitBonusCents && (
+                                        <div className='text-xs whitespace-nowrap text-positive'>
+                                            +{' '}
+                                            <Money cents={line.unitBonusCents} />{' '}
+                                            bonus
+                                        </div>
+                                    )}
                                     {line?.minimumApplied && (
                                         <div className='mt-1'>
                                             <Badge className={tone.warning}>
@@ -245,7 +247,7 @@ export function DealsTable({
                                             className='max-sm:hidden'
                                             what={`deal from ${date}`}
                                             title='Delete this deal?'
-                                            description={`${deal.vehicle || 'This deal'}${deal.customerName ? ` sold to ${deal.customerName}` : ''} on ${formatDate(deal.soldOn, { month: 'long', day: 'numeric' })}.${line ? ` Its ${formatCents(line.commissionCents)} commission comes off this month.` : ''}`}
+                                            description={dealDeleteDescription(deal, line)}
                                             confirmLabel='Delete deal'
                                             disabled={remove.isPending}
                                             onConfirm={() =>
