@@ -94,10 +94,12 @@ type Draft = {
   unitBonus: boolean;
   /** The unit bonus, as typed. */
   unitBonusAmount: string;
+  /** On a split deal, whether the unit bonus was for both salespeople. */
+  unitBonusShared: boolean;
   notes: string;
 };
 
-const SPLIT_DEFAULTS = { split: false, splitWith: "", splitPct: "50", splitCountsForVolume: true };
+const SPLIT_DEFAULTS = { split: false, splitWith: "", splitPct: "50", splitCountsForVolume: true, unitBonusShared: false };
 
 function blankDraft(soldOn: string): Draft {
   return { soldOn, gross: "", customerName: "", vehicle: "", stockNumber: "", affiliateStore: false, affiliateStoreName: "", ...SPLIT_DEFAULTS, unitBonus: false, unitBonusAmount: "", notes: "" };
@@ -113,7 +115,7 @@ function draftFromDeal(d: Deal): Draft {
     stockNumber: d.stockNumber,
     affiliateStore: d.affiliateStore,
     affiliateStoreName: d.affiliateStoreName,
-    ...(d.splitPct === null ? SPLIT_DEFAULTS : { split: true, splitWith: d.splitWith, splitPct: String(d.splitPct), splitCountsForVolume: d.splitCountsForVolume }),
+    ...(d.splitPct === null ? SPLIT_DEFAULTS : { split: true, splitWith: d.splitWith, splitPct: String(d.splitPct), splitCountsForVolume: d.splitCountsForVolume, unitBonusShared: d.unitBonusShared }),
     unitBonus: d.unitBonusCents > 0,
     unitBonusAmount: d.unitBonusCents > 0 ? (d.unitBonusCents / 100).toFixed(2) : "",
     notes: d.notes,
@@ -130,6 +132,8 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
   const grossCents = parseDollars(draft.gross);
   const splitPct = draft.split ? parseSplitPct(draft.splitPct) : null;
   const unitBonusCents = draft.unitBonus ? parseUnitBonus(draft.unitBonusAmount) : 0;
+  // Only asked when the deal has both a split and a unit bonus.
+  const unitBonusShared = draft.split && draft.unitBonus && draft.unitBonusShared;
   const preview =
     grossCents === null || !draft.soldOn
       ? null
@@ -143,6 +147,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
             splitPct,
             splitCountsForVolume: draft.splitCountsForVolume,
             unitBonusCents: unitBonusCents ?? 0,
+            unitBonusShared,
           },
           hireDate,
           dpb,
@@ -167,6 +172,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         splitWith: draft.split ? draft.splitWith : "",
         splitCountsForVolume: draft.split ? draft.splitCountsForVolume : true,
         unitBonusCents: unitBonusCents!,
+        unitBonusShared,
         notes: draft.notes,
       },
       {
@@ -206,7 +212,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         onCheckedChange={(v) => set("unitBonus", v)}
         amount={draft.unitBonusAmount}
         onAmountChange={(v) => set("unitBonusAmount", v)}
-        hint="What you get, in full: it isn't run through your rate or split."
+        hint="Added on top of the commission; it isn't run through your rate."
       />
 
       <label className="col-span-6 flex items-start gap-3 text-sm">
@@ -245,6 +251,15 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
               <span className="block text-xs text-muted-foreground">Turn off if the unit goes to the other salesperson.</span>
             </span>
           </label>
+          {draft.unitBonus && (
+            <label className="col-span-6 flex items-start gap-3 text-sm">
+              <Checkbox className="mt-0.5" checked={draft.unitBonusShared} onCheckedChange={(v) => set("unitBonusShared", v === true)} />
+              <span>
+                The unit bonus is for both of us
+                <span className="block text-xs text-muted-foreground">On: their share comes off the bonus too. Off: the whole bonus is yours.</span>
+              </span>
+            </label>
+          )}
         </>
       )}
 

@@ -37,10 +37,20 @@ const dealFields = z.object({
   splitWith: z.string().trim().max(200),
   splitCountsForVolume: z.boolean(),
   unitBonusCents,
+  /** On a split deal, whether the unit bonus was for both salespeople, so the split percent comes off it too. */
+  unitBonusShared: z.boolean(),
   notes: z.string().trim().max(2000),
 });
 
-type DependentFields = { affiliateStore?: boolean; affiliateStoreName?: string; splitPct?: number | null; splitWith?: string; splitCountsForVolume?: boolean };
+type DependentFields = {
+  affiliateStore?: boolean;
+  affiliateStoreName?: string;
+  splitPct?: number | null;
+  splitWith?: string;
+  splitCountsForVolume?: boolean;
+  unitBonusCents?: number;
+  unitBonusShared?: boolean;
+};
 
 /** An affiliate sale has to say which store, so a PATCH that turns one on sends the store too. */
 const namesStore = (d: DependentFields) => d.affiliateStore !== true || !!d.affiliateStoreName;
@@ -50,11 +60,12 @@ const storeMissing = { path: ["affiliateStoreName"], message: "Enter which affil
 const namesPartner = (d: DependentFields) => d.splitPct == null || !!d.splitWith;
 const partnerMissing = { path: ["splitWith"], message: "Enter who you split the deal with" };
 
-/** Turning off an affiliate sale or a split clears what depended on it, so no row keeps a stale store or partner. */
+/** Turning off an affiliate sale, a split or a unit bonus clears what depended on it, so no row keeps a stale store, partner or choice. */
 function clearUnset<T extends DependentFields>(d: T): T {
   let out = d;
   if (out.affiliateStore === false) out = { ...out, affiliateStoreName: "" };
-  if (out.splitPct === null) out = { ...out, splitWith: "", splitCountsForVolume: true };
+  if (out.splitPct === null) out = { ...out, splitWith: "", splitCountsForVolume: true, unitBonusShared: false };
+  if (out.unitBonusCents === 0) out = { ...out, unitBonusShared: false };
   return out;
 }
 
@@ -67,6 +78,7 @@ export const dealBody = dealFields
     splitWith: dealFields.shape.splitWith.default(""),
     splitCountsForVolume: dealFields.shape.splitCountsForVolume.default(true),
     unitBonusCents: unitBonusCents.default(0),
+    unitBonusShared: dealFields.shape.unitBonusShared.default(false),
     notes: dealFields.shape.notes.default(""),
   })
   .refine(namesStore, storeMissing)

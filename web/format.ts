@@ -42,7 +42,8 @@ export function dealMath(line: DealLine, splitWith: string): string {
   let math = `${gross} × ${line.ratePct}% = ${formatCents(line.rawCommissionCents)}`;
   if (line.minimumApplied) math += `, so the ${formatCents(line.fullCommissionCents, { whole: true })} minimum applies`;
   if (line.splitPct !== null) math += `, minus ${splitWith ? `${splitWith}'s` : "their"} ${line.splitPct}% (${formatCents(line.splitCents)})`;
-  if (line.unitBonusCents) math += `, plus ${formatCents(line.unitBonusCents)} unit bonus`;
+  if (line.unitBonusSplitCents) math += `, plus ${formatCents(line.unitBonusCents)} of the ${formatCents(line.unitBonusCents + line.unitBonusSplitCents)} unit bonus`;
+  else if (line.unitBonusCents) math += `, plus ${formatCents(line.unitBonusCents)} unit bonus`;
   if (!line.countsForVolume) math += ". Not counted toward your volume";
   return math;
 }

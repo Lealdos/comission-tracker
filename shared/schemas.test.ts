@@ -47,6 +47,15 @@ describe("unit bonus", () => {
 
   test("a PATCH that doesn't send it leaves it alone", () => {
     expect(dealPatch.parse({ notes: "x" })).toEqual({ notes: "x" });
-    expect(dealPatch.parse({ unitBonusCents: 0 })).toEqual({ unitBonusCents: 0 });
+  });
+
+  test("whether it's for both only sticks with a split and a bonus", () => {
+    const split = { splitPct: 50, splitWith: "Chris Dalton" };
+    expect(dealBody.parse({ ...sale, ...split, unitBonusCents: 200_00, unitBonusShared: true }).unitBonusShared).toBe(true);
+    expect(dealBody.parse({ ...sale, unitBonusCents: 200_00, unitBonusShared: true }).unitBonusShared).toBe(false);
+    expect(dealBody.parse({ ...sale, ...split, unitBonusShared: true }).unitBonusShared).toBe(false);
+    // Removing the split or the bonus in a PATCH clears it too.
+    expect(dealPatch.parse({ splitPct: null }).unitBonusShared).toBe(false);
+    expect(dealPatch.parse({ unitBonusCents: 0 })).toEqual({ unitBonusCents: 0, unitBonusShared: false });
   });
 });

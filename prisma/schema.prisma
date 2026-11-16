@@ -64,9 +64,12 @@ model Deal {
   splitWith            String      @default("") @map("split_with")
   /// Whether a split deal still counts as a unit toward the volume bonus (the salesperson's choice per deal).
   splitCountsForVolume Boolean     @default(true) @map("split_counts_for_volume")
-  /// A one-off bonus for this particular car (aged unit, manufacturer), as the salesperson gets it: paid in full on top of
-  /// the commission, not run through the rate or the minimum, and not split. 0 when there's none.
+  /// A one-off bonus for this particular car (aged unit, manufacturer), the whole amount: paid on top of the commission,
+  /// not run through the rate or the minimum. 0 when there's none.
   unitBonusCents       Int         @default(0) @map("unit_bonus_cents")
+  /// On a split deal, whether the unit bonus was for both salespeople (then the split percent comes off it too);
+  /// otherwise it's all this salesperson's.
+  unitBonusShared      Boolean     @default(false) @map("unit_bonus_shared")
   notes                String      @default("")
   createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
   user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)

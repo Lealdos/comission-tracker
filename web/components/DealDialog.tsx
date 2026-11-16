@@ -97,6 +97,11 @@ function DealDetails({ deal, line, onEdit, onDeleted }: { deal: Deal; line: Deal
         {deal.unitBonusCents > 0 && (
           <Item label="Unit bonus">
             <Money cents={deal.unitBonusCents} />
+            {line && deal.splitPct !== null && (
+              <span className="block text-muted-foreground">
+                {deal.unitBonusShared ? `Shared: ${formatCents(line.unitBonusCents)} is yours` : "All yours, not split"}
+              </span>
+            )}
           </Item>
         )}
         {deal.affiliateStore && <Item label="Sold at">{deal.affiliateStoreName || missing}</Item>}
