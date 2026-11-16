@@ -24,6 +24,7 @@ export async function loadMonth(user: PublicUser, month: string) {
   ]);
 
   const deals = dealRows.map(serializeDeal);
+  const acquisitions = acquisitionRows.map(serializeAcquisition);
   const spiffs = spiffRows.map(serializeSpiff);
   const settings = {
     dpbQualified: settingsRow?.dpbQualified ?? false,
@@ -35,13 +36,13 @@ export async function loadMonth(user: PublicUser, month: string) {
     month,
     hireDate: user.hireDate,
     deals,
-    acquisitionCount: acquisitionRows.length,
+    acquisitions,
     spiffCents: spiffs.map((s) => s.amountCents),
     dpb: { qualified: settings.dpbQualified, perCarCents: settings.dpbPerCarCents },
     drawOverrideCents: settings.drawOverrideCents,
   });
 
-  return { summary, settings, deals, acquisitions: acquisitionRows.map(serializeAcquisition), spiffs };
+  return { summary, settings, deals, acquisitions, spiffs };
 }
 
 export const monthRoutes = new Hono<AppEnv>()

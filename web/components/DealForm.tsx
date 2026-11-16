@@ -3,8 +3,9 @@ import { toast } from "sonner";
 import { dealCommission, formatCents, parseDollars, type DealLine, type DpbSetting } from "../../shared/commission.ts";
 import { planForDate, type VehicleType } from "../../shared/payplan.ts";
 import { api, type Acquisition, type Deal } from "../api.ts";
+import { SOURCE_LABEL, dealMath, parseSplitPct, parseUnitBonus } from "../format.ts";
 import { useMonthMutation } from "../hooks.ts";
-import { ErrorText, Field, MoneyInput, NativeSelect, PayPreview, PercentInput, SOURCE_LABEL, parseSplitPct } from "./common.tsx";
+import { ErrorText, Field, MoneyInput, NativeSelect, PayPreview, PercentInput, SignedMoneyInput } from "./common.tsx";
 import { Button } from "./ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card.tsx";
 import { Checkbox } from "./ui/checkbox.tsx";
@@ -90,14 +91,18 @@ type Draft = {
   /** The other salesperson's share, as typed. */
   splitPct: string;
   splitCountsForVolume: boolean;
+  unitBonus: boolean;
+  /** The unit bonus, as typed. */
+  unitBonusAmount: string;
   notes: string;
 };
 
 const SPLIT_DEFAULTS = { split: false, splitWith: "", splitPct: "50", splitCountsForVolume: true };
 
 function blankDraft(soldOn: string): Draft {
-  return { soldOn, gross: "", customerName: "", vehicle: "", stockNumber: "", affiliateStore: false, affiliateStoreName: "", ...SPLIT_DEFAULTS, notes: "" };
+  return { soldOn, gross: "", customerName: "", vehicle: "", stockNumber: "", affiliateStore: false, affiliateStoreName: "", ...SPLIT_DEFAULTS, unitBonus: false, unitBonusAmount: "", notes: "" };
 }
+
 
 function draftFromDeal(d: Deal): Draft {
   return {
@@ -109,6 +114,8 @@ function draftFromDeal(d: Deal): Draft {
     affiliateStore: d.affiliateStore,
     affiliateStoreName: d.affiliateStoreName,
     ...(d.splitPct === null ? SPLIT_DEFAULTS : { split: true, splitWith: d.splitWith, splitPct: String(d.splitPct), splitCountsForVolume: d.splitCountsForVolume }),
+    unitBonus: d.unitBonusCents > 0,
+    unitBonusAmount: d.unitBonusCents > 0 ? (d.unitBonusCents / 100).toFixed(2) : "",
     notes: d.notes,
   };
 }
@@ -122,6 +129,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
 
   const grossCents = parseDollars(draft.gross);
   const splitPct = draft.split ? parseSplitPct(draft.splitPct) : null;
+  const unitBonusCents = draft.unitBonus ? parseUnitBonus(draft.unitBonusAmount) : 0;
   const preview =
     grossCents === null || !draft.soldOn
       ? null
@@ -134,12 +142,13 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
             grossCents,
             splitPct,
             splitCountsForVolume: draft.splitCountsForVolume,
+            unitBonusCents: unitBonusCents ?? 0,
           },
           hireDate,
           dpb,
         );
 
-  const invalid = grossCents === null || (draft.split && splitPct === null);
+  const invalid = grossCents === null || (draft.split && splitPct === null) || unitBonusCents === null;
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -157,12 +166,13 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         splitPct,
         splitWith: draft.split ? draft.splitWith : "",
         splitCountsForVolume: draft.split ? draft.splitCountsForVolume : true,
+        unitBonusCents: unitBonusCents!,
         notes: draft.notes,
       },
       {
         onSuccess: () => {
           toast.success(editing ? "Deal updated" : "Deal added", {
-            description: `${draft.vehicle.trim()} for ${draft.customerName.trim()}${preview ? ` pays ${formatCents(preview.commissionCents)}` : ""}`,
+            description: `${draft.vehicle.trim()} for ${draft.customerName.trim()}${preview ? ` pays ${formatCents(preview.payCents)}` : ""}`,
           });
           // Keep the date (LogPanel keeps the type): deals usually get entered in batches from the same day.
           setDraft(blankDraft(draft.soldOn));
@@ -188,8 +198,16 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         <Input type="date" required value={draft.soldOn} onChange={(e) => set("soldOn", e.target.value)} />
       </Field>
       <Field label="Gross profit" className="col-span-3" hint="As reported, after the $500 management fee">
-        <MoneyInput allowNegative required placeholder="0.00" value={draft.gross} onChange={(e) => set("gross", e.target.value)} />
+        <SignedMoneyInput required placeholder="0.00" value={draft.gross} onValueChange={(v) => set("gross", v)} />
       </Field>
+
+      <UnitBonusFields
+        checked={draft.unitBonus}
+        onCheckedChange={(v) => set("unitBonus", v)}
+        amount={draft.unitBonusAmount}
+        onAmountChange={(v) => set("unitBonusAmount", v)}
+        hint="What you get, in full: it isn't run through your rate or split."
+      />
 
       <label className="col-span-6 flex items-start gap-3 text-sm">
         <Checkbox className="mt-0.5" checked={draft.affiliateStore} onCheckedChange={(v) => set("affiliateStore", v === true)} />
@@ -257,19 +275,47 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
 
 function DealPreview({ line, splitWith }: { line: DealLine | null; splitWith: string }) {
   if (!line) return <div className="rounded-lg border border-dashed px-3.5 py-3 text-sm text-muted-foreground">Enter the gross to see what this deal pays.</div>;
-  return <PayPreview label="This deal pays" cents={line.commissionCents} detail={dealMath(line, splitWith)} />;
+  return <PayPreview label="This deal pays" cents={line.payCents} detail={dealMath(line, splitWith)} />;
 }
 
-/** How a deal's pay adds up, in one line: gross (plus DPB) times the rate, the minimum, then any split. */
-export function dealMath(line: DealLine, splitWith: string): string {
-  const gross = line.dpbCents ? `(${formatCents(line.grossCents)} + ${formatCents(line.dpbCents, { whole: true })} DPB)` : formatCents(line.grossCents);
-  let math = `${gross} × ${line.ratePct}% = ${formatCents(line.rawCommissionCents)}`;
-  if (line.minimumApplied) math += `, so the ${formatCents(line.fullCommissionCents, { whole: true })} minimum applies`;
-  if (line.splitPct !== null) {
-    math += `, minus ${splitWith ? `${splitWith}'s` : "their"} ${line.splitPct}% (${formatCents(line.splitCents)})`;
-    if (!line.countsForVolume) math += ". Not counted toward your volume";
-  }
-  return math;
+/**
+ * The optional one-off bonus for one particular car, sold or bought: a checkbox that reveals the amount.
+ * It's entered as what the salesperson gets, so it isn't run through the rate or split.
+ */
+function UnitBonusFields({
+  checked,
+  onCheckedChange,
+  amount,
+  onAmountChange,
+  hint,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  amount: string;
+  onAmountChange: (amount: string) => void;
+  hint: string;
+}) {
+  // An empty field just disables saving; only something typed that isn't an amount gets the error.
+  const unreadable = amount !== "" && parseUnitBonus(amount) === null;
+  return (
+    <>
+      <label className="col-span-6 flex items-start gap-3 text-sm">
+        <Checkbox className="mt-0.5" checked={checked} onCheckedChange={(v) => onCheckedChange(v === true)} />
+        <span>
+          This car has a unit bonus
+          <span className="block text-xs text-muted-foreground">A one-off bonus on this car, paid on top of what the plan pays.</span>
+        </span>
+      </label>
+      {checked && (
+        <>
+          <Field label="Unit bonus" className="col-span-6 @xl:col-span-3" hint={hint}>
+            <MoneyInput required placeholder="0.00" value={amount} onChange={(e) => onAmountChange(e.target.value)} aria-invalid={unreadable || undefined} />
+          </Field>
+          {unreadable && <p className="col-span-6 -mt-2 text-xs text-destructive">Enter an amount in dollars, like 250 or 250.00.</p>}
+        </>
+      )}
+    </>
+  );
 }
 
 /** Logs a car bought from a customer: the log card's "Bought" tab. */
@@ -278,18 +324,25 @@ function CarBoughtForm({ defaultDate, bonusCents }: { defaultDate: string; bonus
   const [source, setSource] = useState<Acquisition["source"]>("service_drive");
   const [customerName, setCustomerName] = useState("");
   const [vehicle, setVehicle] = useState("");
+  const [unitBonus, setUnitBonus] = useState(false);
+  const [unitBonusAmount, setUnitBonusAmount] = useState("");
   const add = useMonthMutation(api.createAcquisition);
+  const unitBonusCents = unitBonus ? parseUnitBonus(unitBonusAmount) : 0;
+  const totalCents = bonusCents + (unitBonusCents ?? 0);
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    if (unitBonusCents === null) return;
     add.mutate(
-      { acquiredOn, source, customerName, vehicle },
+      { acquiredOn, source, customerName, vehicle, unitBonusCents },
       {
         onSuccess: () => {
-          toast.success("Car bought added", { description: `${vehicle.trim()} from ${customerName.trim()}, +${formatCents(bonusCents, { whole: true })}` });
+          toast.success("Car bought added", { description: `${vehicle.trim()} from ${customerName.trim()}, +${formatCents(totalCents)}` });
           // Keep date and source, like the deal form keeps date and type.
           setCustomerName("");
           setVehicle("");
+          setUnitBonus(false);
+          setUnitBonusAmount("");
         },
       },
     );
@@ -316,13 +369,23 @@ function CarBoughtForm({ defaultDate, bonusCents }: { defaultDate: string; bonus
         </NativeSelect>
       </Field>
 
+      <UnitBonusFields checked={unitBonus} onCheckedChange={setUnitBonus} amount={unitBonusAmount} onAmountChange={setUnitBonusAmount} hint="What you get, on top of the flat bonus." />
+
       <div className="col-span-6">
-        <PayPreview label="This car pays" cents={bonusCents} detail="Flat bonus per vehicle, added to this month's earnings" />
+        <PayPreview
+          label="This car pays"
+          cents={totalCents}
+          detail={
+            unitBonusCents
+              ? `${formatCents(bonusCents, { whole: true })} flat bonus plus ${formatCents(unitBonusCents)} unit bonus, added to this month's earnings`
+              : "Flat bonus per vehicle, added to this month's earnings"
+          }
+        />
       </div>
 
       <div className="col-span-6 grid gap-3">
         <ErrorText error={add.error} />
-        <Button type="submit" disabled={add.isPending}>
+        <Button type="submit" disabled={unitBonusCents === null || add.isPending}>
           {add.isPending ? "Saving…" : "Add car bought"}
         </Button>
       </div>

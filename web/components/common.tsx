@@ -1,9 +1,8 @@
-// App-level building blocks on top of the shadcn/ui primitives in ./ui/.
+// App-level building blocks on top of the shadcn/ui primitives in ./ui/. Components only; shared helpers are in ../format.ts.
 
 import { Trash2 } from "lucide-react";
-import type { ComponentProps, ReactNode, SelectHTMLAttributes } from "react";
+import { useRef, type ComponentProps, type ReactNode, type SelectHTMLAttributes } from "react";
 import { formatCents } from "../../shared/commission.ts";
-import { toUTC } from "../../shared/dates.ts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,26 +29,66 @@ export function Field({ label, hint, children, group, className = "" }: { label:
   );
 }
 
-/**
- * A dollar amount. `allowNegative` (a deal's gross) makes it a number field: the decimal keypad phones show
- * otherwise has no minus key on iPhone, while a number field brings up one with both "-" and ".".
- */
-export function MoneyInput({ className = "", allowNegative = false, ...props }: Omit<ComponentProps<"input">, "type"> & { allowNegative?: boolean }) {
-  const keyboard: ComponentProps<"input"> = allowNegative
-    ? // step="any" leaves the cents check to parseDollars; blurring on wheel keeps a scroll from changing the amount.
-      { type: "number", step: "any", onWheel: (e) => e.currentTarget.blur() }
-    : { inputMode: "decimal" };
+function DollarSign() {
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
+      $
+    </span>
+  );
+}
+
+/** A dollar amount that can't be negative: the decimal keypad on phones. */
+export function MoneyInput({ className = "", ...props }: Omit<ComponentProps<"input">, "type">) {
   return (
     <div className="relative">
-      <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
-        $
-      </span>
-      <Input
-        autoComplete="off"
-        {...keyboard}
-        {...props}
-        className={`pl-7 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${className}`}
-      />
+      <DollarSign />
+      <Input inputMode="decimal" autoComplete="off" {...props} className={`pl-7 tabular-nums ${className}`} />
+    </div>
+  );
+}
+
+/**
+ * A dollar amount that can be negative (a deal's gross). The keypads phones show for amounts often have no minus key
+ * (the iPhone's decimal pad, some Android number pads), so a +/− button flips the sign; a keyboard with a minus works too.
+ */
+export function SignedMoneyInput({
+  value,
+  onValueChange,
+  className = "",
+  ...props
+}: Omit<ComponentProps<"input">, "type" | "value" | "onChange"> & { value: string; onValueChange: (value: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const negative = value.includes("-");
+  return (
+    <div className="flex">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        aria-label="Negative amount"
+        aria-pressed={negative}
+        // Keep the field focused, so the phone keyboard stays up while the sign flips.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          onValueChange(negative ? value.replace("-", "") : `-${value.trim()}`);
+          input.current?.focus();
+        }}
+        className={`rounded-r-none border-r-0 border-input text-base ${negative ? "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive" : "text-muted-foreground"}`}
+      >
+        +/−
+      </Button>
+      <div className="relative min-w-0 flex-1">
+        <DollarSign />
+        <Input
+          ref={input}
+          inputMode="decimal"
+          autoComplete="off"
+          value={value}
+          onChange={(e) => onValueChange(e.target.value)}
+          {...props}
+          className={`rounded-l-none pl-7 tabular-nums ${negative ? "text-destructive" : ""} ${className}`}
+        />
+      </div>
     </div>
   );
 }
@@ -64,14 +103,6 @@ export function PercentInput({ className = "", ...props }: Omit<ComponentProps<"
       </span>
     </div>
   );
-}
-
-/** Parses a whole percent from 1 to 99 (a split's share); null for anything else. */
-export function parseSplitPct(input: string): number | null {
-  const cleaned = input.replace(/[%\s]/g, "");
-  if (!/^\d{1,2}$/.test(cleaned)) return null;
-  const pct = Number(cleaned);
-  return pct >= 1 && pct <= 99 ? pct : null;
 }
 
 /** A native select dressed like the shadcn Input: phones and tablets open their own picker. */
@@ -166,21 +197,4 @@ export function ConfirmDelete({
 /** An empty list, phrased as what to do next. */
 export function EmptyNote({ children }: { children: ReactNode }) {
   return <p className="mt-3 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">{children}</p>;
-}
-
-export const SOURCE_LABEL = { service_drive: "Service drive", off_street: "Off-street" } as const;
-
-/** Small pill tones used across lists: sale type, affiliate, minimum applied, missing details. */
-export const tone = {
-  positive: "border-transparent bg-positive-soft text-positive",
-  neutral: "border-transparent bg-secondary text-muted-foreground",
-  warning: "border-transparent bg-warning-soft text-warning",
-} as const;
-
-export function formatDate(date: string, opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" }): string {
-  return toUTC(date).toLocaleDateString("en-US", { timeZone: "UTC", ...opts });
-}
-
-export function formatMonth(month: string): string {
-  return formatDate(`${month}-01`, { month: "long", year: "numeric" });
 }

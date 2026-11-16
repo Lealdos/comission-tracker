@@ -44,44 +44,49 @@ model User {
 }
 
 model Deal {
-  id                       Int         @id @default(autoincrement())
-  userId                   Int         @map("user_id")
-  soldOn                   DateTime    @map("sold_on") @db.Date
-  vehicleType              VehicleType @map("vehicle_type")
-  grossCents               Int         @map("gross_cents")
+  id                   Int         @id @default(autoincrement())
+  userId               Int         @map("user_id")
+  soldOn               DateTime    @map("sold_on") @db.Date
+  vehicleType          VehicleType @map("vehicle_type")
+  grossCents           Int         @map("gross_cents")
   /// Required by the API (shared/schemas.ts); the "" default only covers deals logged before it was.
-  customerName             String      @default("") @map("customer_name")
+  customerName         String      @default("") @map("customer_name")
   /// As the salesperson writes it, e.g. "2026 Tucson SEL".
-  vehicle                  String      @default("")
-  stockNumber              String      @default("") @map("stock_number")
+  vehicle              String      @default("")
+  stockNumber          String      @default("") @map("stock_number")
   /// Sold at an affiliated Germain store: paid on this store's plan and counted toward volume like any other deal.
-  affiliateStore           Boolean     @default(false) @map("affiliate_store")
+  affiliateStore       Boolean     @default(false) @map("affiliate_store")
   /// Which affiliated store; required by the API with `affiliateStore`, "" otherwise (and on affiliate sales logged before it was).
-  affiliateStoreName       String      @default("") @map("affiliate_store_name")
+  affiliateStoreName   String      @default("") @map("affiliate_store_name")
   /// Split with another salesperson: the whole percent of the commission that goes to them (1-99). Null when not split.
-  splitPct                 Int?        @map("split_pct")
+  splitPct             Int?        @map("split_pct")
   /// Who the deal was split with; "" when it wasn't.
-  splitWith                String      @default("") @map("split_with")
+  splitWith            String      @default("") @map("split_with")
   /// Whether a split deal still counts as a unit toward the volume bonus (the salesperson's choice per deal).
-  splitCountsForVolume     Boolean     @default(true) @map("split_counts_for_volume")
-  notes                    String      @default("")
-  createdAt                DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  user                     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  splitCountsForVolume Boolean     @default(true) @map("split_counts_for_volume")
+  /// A one-off bonus for this particular car (aged unit, manufacturer), as the salesperson gets it: paid in full on top of
+  /// the commission, not run through the rate or the minimum, and not split. 0 when there's none.
+  unitBonusCents       Int         @default(0) @map("unit_bonus_cents")
+  notes                String      @default("")
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, soldOn])
   @@map("deals")
 }
 
 model Acquisition {
-  id           Int               @id @default(autoincrement())
-  userId       Int               @map("user_id")
-  acquiredOn   DateTime          @map("acquired_on") @db.Date
-  source       AcquisitionSource
+  id             Int               @id @default(autoincrement())
+  userId         Int               @map("user_id")
+  acquiredOn     DateTime          @map("acquired_on") @db.Date
+  source         AcquisitionSource
   /// Required by the API, like a deal's; the "" default only covers rows logged before it was.
-  customerName String            @default("") @map("customer_name")
-  vehicle      String            @default("")
-  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerName   String            @default("") @map("customer_name")
+  vehicle        String            @default("")
+  /// A one-off bonus for this particular car, on top of the plan's flat bonus per car bought. 0 when there's none.
+  unitBonusCents Int               @default(0) @map("unit_bonus_cents")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, acquiredOn])
   @@map("acquisitions")

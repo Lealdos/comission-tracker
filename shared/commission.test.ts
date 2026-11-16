@@ -16,6 +16,7 @@ function deal(vehicleType: "new" | "used", grossDollars: number, extra: Partial<
     grossCents: grossDollars * 100,
     splitPct: null,
     splitCountsForVolume: true,
+    unitBonusCents: 0,
     ...extra,
   };
 }
@@ -70,6 +71,32 @@ describe("dealCommission", () => {
   });
 });
 
+describe("unit bonus", () => {
+  test("is paid in full on top of the commission, not run through the rate", () => {
+    const line = dealCommission(plan, deal("new", 3000, { unitBonusCents: 300_00 }), HIRE, NO_DPB);
+    expect(line.commissionCents).toBe(480_00);
+    expect(line.unitBonusCents).toBe(300_00);
+    expect(line.payCents).toBe(780_00);
+  });
+
+  test("doesn't lift a deal off the minimum", () => {
+    const line = dealCommission(plan, deal("used", -300, { unitBonusCents: 150_00 }), HIRE, NO_DPB);
+    expect(line.minimumApplied).toBe(true);
+    expect(line.payCents).toBe(200_00 + 150_00);
+  });
+
+  test("isn't split: it's entered as what this salesperson gets", () => {
+    const line = dealCommission(plan, deal("new", 3000, { splitPct: 50, unitBonusCents: 200_00 }), HIRE, NO_DPB);
+    expect(line.commissionCents).toBe(240_00);
+    expect(line.payCents).toBe(440_00);
+  });
+
+  test("a deal without one pays its commission", () => {
+    const line = dealCommission(plan, deal("new", 3000), HIRE, NO_DPB);
+    expect(line.payCents).toBe(line.commissionCents);
+  });
+});
+
 describe("split deals", () => {
   test("the other salesperson's percent comes off the deal's commission", () => {
     const line = dealCommission(plan, deal("new", 3000, { splitPct: 50 }), HIRE, NO_DPB);
@@ -108,7 +135,7 @@ describe("split deals", () => {
 
   test("a split deal counts toward volume only when the salesperson says so", () => {
     const deals = [...Array.from({ length: 12 }, () => deal("new", 3000)), deal("used", 2500, { splitPct: 50, splitCountsForVolume: true })];
-    const base = { month: "2026-06", hireDate: HIRE, deals, acquisitionCount: 0, spiffCents: [], dpb: NO_DPB, drawOverrideCents: null };
+    const base = { month: "2026-06", hireDate: HIRE, deals, acquisitions: [], spiffCents: [], dpb: NO_DPB, drawOverrideCents: null };
 
     const counted = monthSummary(base);
     expect(counted.units).toEqual({ new: 12, used: 1, total: 13 });
@@ -175,7 +202,8 @@ describe("monthSummary", () => {
     ...Array.from({ length: 10 }, () => deal("new", 3000)),
     ...Array.from({ length: 3 }, () => deal("used", 2500)),
   ];
-  const base = { month: "2026-06", hireDate: HIRE, deals, acquisitionCount: 2, spiffCents: [100_00, 50_00], dpb: NO_DPB, drawOverrideCents: null };
+  const carBought = (unitBonusCents = 0) => ({ unitBonusCents });
+  const base = { month: "2026-06", hireDate: HIRE, deals, acquisitions: [carBought(), carBought()], spiffCents: [100_00, 50_00], dpb: NO_DPB, drawOverrideCents: null };
 
   test("adds commission, volume, acquisitions and spiffs, then subtracts draws", () => {
     const s = monthSummary(base);
@@ -190,6 +218,21 @@ describe("monthSummary", () => {
     expect(s.checkCents).toBe(5200_00);
     expect(s.totalIncomeCents).toBe(7200_00);
     expect(s.payDate).toBe("2026-07-10");
+    expect(s.unitBonuses).toEqual({ deals: 0, carsBought: 0, totalCents: 0 });
+  });
+
+  test("unit bonuses on deals and cars bought add to earnings on their own line", () => {
+    const s = monthSummary({
+      ...base,
+      deals: [...deals.slice(1), deal("new", 3000, { unitBonusCents: 300_00 })],
+      acquisitions: [carBought(100_00), carBought()],
+    });
+    expect(s.commissionCents).toBe(10 * 480_00 + 3 * 450_00);
+    expect(s.acquisitions.bonusCents).toBe(400_00);
+    expect(s.unitBonuses).toEqual({ deals: 1, carsBought: 1, totalCents: 400_00 });
+    expect(s.earningsCents).toBe(7200_00 + 400_00);
+    // Units are counted by deal, so a bonus changes nothing there.
+    expect(s.units.total).toBe(13);
   });
 
   test("DPB raises every new deal in the month", () => {
@@ -205,7 +248,7 @@ describe("monthSummary", () => {
   });
 
   test("the draw is a guarantee: a slow month never pays less than the draws", () => {
-    const s = monthSummary({ ...base, deals: [], acquisitionCount: 0, spiffCents: [] });
+    const s = monthSummary({ ...base, deals: [], acquisitions: [], spiffCents: [] });
     expect(s.earningsCents).toBe(0);
     expect(s.checkCents).toBe(0);
     expect(s.totalIncomeCents).toBe(2000_00);

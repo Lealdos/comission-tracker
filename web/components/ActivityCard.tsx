@@ -8,6 +8,7 @@ import {
     type MonthData,
     type Spiff,
 } from '../api.ts';
+import { SOURCE_LABEL, formatDate } from '../format.ts';
 import { useMonthMutation } from '../hooks.ts';
 import {
     ConfirmDelete,
@@ -16,8 +17,6 @@ import {
     Field,
     Money,
     MoneyInput,
-    SOURCE_LABEL,
-    formatDate,
 } from './common.tsx';
 import { DealsTable } from './DealsTable.tsx';
 import { Button } from './ui/button.tsx';
@@ -138,7 +137,12 @@ function CarsBought({
                         key={r.id}
                         date={r.acquiredOn}
                         label={r.vehicle || 'Vehicle not entered'}
-                        detail={[r.customerName, SOURCE_LABEL[r.source]]
+                        detail={[
+                            r.customerName,
+                            SOURCE_LABEL[r.source],
+                            r.unitBonusCents > 0 &&
+                                `+ ${formatCents(r.unitBonusCents)} unit bonus`,
+                        ]
                             .filter(Boolean)
                             .join(', ')}
                         cents={perCarCents}
@@ -146,7 +150,7 @@ function CarsBought({
                             <ConfirmDelete
                                 what={`car bought on ${formatDate(r.acquiredOn)}`}
                                 title='Delete this car bought?'
-                                description={`${r.vehicle || 'This car'}${r.customerName ? ` from ${r.customerName}` : ''} on ${formatDate(r.acquiredOn, longDate)}. Its ${formatCents(perCarCents, { whole: true })} bonus comes off this month.`}
+                                description={`${r.vehicle || 'This car'}${r.customerName ? ` from ${r.customerName}` : ''} on ${formatDate(r.acquiredOn, longDate)}. Its ${formatCents(perCarCents, { whole: true })} bonus${r.unitBonusCents > 0 ? ` and ${formatCents(r.unitBonusCents)} unit bonus come` : ' comes'} off this month.`}
                                 confirmLabel='Delete car bought'
                                 disabled={remove.isPending}
                                 onConfirm={() =>
@@ -290,7 +294,7 @@ function Entry({
                 <span className='block font-medium'>{label}</span>
                 {detail && (
                     <span className='block text-xs text-muted-foreground'>
-                        {detail} leito
+                        {detail}
                     </span>
                 )}
             </span>
