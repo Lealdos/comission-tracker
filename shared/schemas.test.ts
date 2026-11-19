@@ -22,6 +22,38 @@ describe("affiliated-store sales", () => {
   });
 });
 
+describe("customer phone", () => {
+  test("is optional", () => {
+    expect(dealBody.parse(sale).customerPhone).toBe("");
+    expect(dealBody.parse({ ...sale, customerPhone: "  " }).customerPhone).toBe("");
+  });
+
+  test("US numbers are stored formatted, whatever the separators", () => {
+    for (const typed of ["8015550142", "801-555-0142", "801.555.0142", "(801) 555 0142", "+1 801 555 0142", "18015550142"]) {
+      expect(dealBody.parse({ ...sale, customerPhone: typed }).customerPhone).toBe("(801) 555-0142");
+    }
+  });
+
+  test("other numbers stay as typed", () => {
+    expect(dealBody.parse({ ...sale, customerPhone: " +52 33 1234 5678 " }).customerPhone).toBe("+52 33 1234 5678");
+    // A + with 10 digits is a foreign number, not a US one.
+    expect(dealBody.parse({ ...sale, customerPhone: "+49 30 123456" }).customerPhone).toBe("+49 30 123456");
+    expect(dealBody.parse({ ...sale, customerPhone: "555-0142" }).customerPhone).toBe("555-0142");
+  });
+
+  test("rejects what isn't a phone number", () => {
+    for (const typed of ["call me", "555-01", "801 555 0142 ext 3", "1234567890123456", "801+555+0142"]) {
+      expect(dealBody.safeParse({ ...sale, customerPhone: typed }).success).toBe(false);
+    }
+  });
+
+  test("a PATCH can change or clear it, and leaves it alone otherwise", () => {
+    expect(dealPatch.parse({ customerPhone: "801 555 0142" })).toEqual({ customerPhone: "(801) 555-0142" });
+    expect(dealPatch.parse({ customerPhone: "" })).toEqual({ customerPhone: "" });
+    expect(dealPatch.parse({ notes: "x" })).toEqual({ notes: "x" });
+  });
+});
+
 describe("gross", () => {
   test("a deal can be logged with a negative gross (it still pays the minimum)", () => {
     expect(dealBody.parse({ ...sale, grossCents: -1500_00 }).grossCents).toBe(-1500_00);

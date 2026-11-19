@@ -51,6 +51,8 @@ model Deal {
   grossCents           Int         @map("gross_cents")
   /// Required by the API (shared/schemas.ts); the "" default only covers deals logged before it was.
   customerName         String      @default("") @map("customer_name")
+  /// The buyer's phone, optional ("" when not given). US numbers are stored formatted, "(801) 555-0142" (shared/phone.ts).
+  customerPhone        String      @default("") @map("customer_phone")
   /// As the salesperson writes it, e.g. "2026 Tucson SEL".
   vehicle              String      @default("")
   stockNumber          String      @default("") @map("stock_number")

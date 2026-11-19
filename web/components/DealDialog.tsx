@@ -2,6 +2,7 @@ import { Pencil } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { formatCents, type DealLine, type DpbSetting } from "../../shared/commission.ts";
+import { phoneHref } from "../../shared/phone.ts";
 import { api, type Deal } from "../api.ts";
 import { useMonthMutation } from "../hooks.ts";
 import { ConfirmDelete, ErrorText, Money, PayPreview } from "./common.tsx";
@@ -87,6 +88,15 @@ function DealDetails({ deal, line, onEdit, onDeleted }: { deal: Deal; line: Deal
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <Item label="Customer">{deal.customerName || missing}</Item>
+        <Item label="Phone">
+          {deal.customerPhone ? (
+            <a href={phoneHref(deal.customerPhone)} className="font-medium text-positive underline-offset-4 hover:underline">
+              {deal.customerPhone}
+            </a>
+          ) : (
+            <span className="text-muted-foreground">None</span>
+          )}
+        </Item>
         <Item label="Sold on">{formatDate(deal.soldOn, longDate)}</Item>
         <Item label="Stock #">{deal.stockNumber || <span className="text-muted-foreground">None</span>}</Item>
         <Item label="Gross profit">
