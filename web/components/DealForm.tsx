@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { dealCommission, formatCents, parseDollars, type DealLine, type DpbSetting } from "../../shared/commission.ts";
 import { planForDate, type VehicleType } from "../../shared/payplan.ts";
+import { PHONE_PATTERN } from "../../shared/phone.ts";
 import { api, type Acquisition, type Deal } from "../api.ts";
 import { SOURCE_LABEL, dealMath, parseSplitPct, parseUnitBonus } from "../format.ts";
 import { useMonthMutation } from "../hooks.ts";
@@ -82,6 +83,7 @@ type Draft = {
   soldOn: string;
   gross: string;
   customerName: string;
+  customerPhone: string;
   vehicle: string;
   stockNumber: string;
   affiliateStore: boolean;
@@ -102,7 +104,7 @@ type Draft = {
 const SPLIT_DEFAULTS = { split: false, splitWith: "", splitPct: "50", splitCountsForVolume: true, unitBonusShared: false };
 
 function blankDraft(soldOn: string): Draft {
-  return { soldOn, gross: "", customerName: "", vehicle: "", stockNumber: "", affiliateStore: false, affiliateStoreName: "", ...SPLIT_DEFAULTS, unitBonus: false, unitBonusAmount: "", notes: "" };
+  return { soldOn, gross: "", customerName: "", customerPhone: "", vehicle: "", stockNumber: "", affiliateStore: false, affiliateStoreName: "", ...SPLIT_DEFAULTS, unitBonus: false, unitBonusAmount: "", notes: "" };
 }
 
 
@@ -111,6 +113,7 @@ function draftFromDeal(d: Deal): Draft {
     soldOn: d.soldOn,
     gross: (d.grossCents / 100).toFixed(2),
     customerName: d.customerName,
+    customerPhone: d.customerPhone,
     vehicle: d.vehicle,
     stockNumber: d.stockNumber,
     affiliateStore: d.affiliateStore,
@@ -164,6 +167,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         vehicleType,
         grossCents: grossCents!,
         customerName: draft.customerName,
+        customerPhone: draft.customerPhone,
         vehicle: draft.vehicle,
         stockNumber: draft.stockNumber,
         affiliateStore: draft.affiliateStore,
@@ -192,6 +196,19 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
     <form onSubmit={submit} className="grid grid-cols-6 gap-x-3 gap-y-4">
       <Field label="Customer" className="col-span-6 @xl:col-span-3">
         <Input required autoComplete="off" value={draft.customerName} maxLength={200} onChange={(e) => set("customerName", e.target.value)} />
+      </Field>
+      {/* The buyer's number, so autofill stays off; type="tel" brings up the phone keypad. */}
+      <Field label="Phone" className="col-span-6 @xl:col-span-3">
+        <Input
+          type="tel"
+          autoComplete="off"
+          placeholder="Optional"
+          value={draft.customerPhone}
+          maxLength={30}
+          pattern={PHONE_PATTERN}
+          title="A phone number with 7 to 15 digits, like 801 555 0142"
+          onChange={(e) => set("customerPhone", e.target.value)}
+        />
       </Field>
       <Field label="Vehicle" className="col-span-4 @xl:col-span-2">
         <Input required autoComplete="off" placeholder="e.g. 2026 Tucson SEL" value={draft.vehicle} maxLength={200} onChange={(e) => set("vehicle", e.target.value)} />

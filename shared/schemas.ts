@@ -1,6 +1,7 @@
 // Request bodies, shared so the API validates exactly what the web forms send.
 
 import { z } from "zod";
+import { formatPhone, isPhone } from "./phone.ts";
 
 const isoDate = z.iso.date();
 const cents = z.number().int().min(-10_000_000_00).max(10_000_000_00);
@@ -18,6 +19,13 @@ export const profileBody = profileCreateBody.partial();
 /** Who the customer was and which vehicle are required on every deal and car bought, so each one can be traced later. */
 const customerName = z.string().trim().min(1, "Enter the customer's name").max(200);
 const vehicle = z.string().trim().min(1, "Enter the vehicle").max(200);
+/** The buyer's phone, optional ("" when not given); US numbers are stored as "(801) 555-0142". */
+const customerPhone = z
+  .string()
+  .trim()
+  .max(30)
+  .refine((v) => v === "" || isPhone(v), "Enter a phone number with 7 to 15 digits")
+  .transform(formatPhone);
 /** A one-off bonus for one particular car, sold or bought, paid on top of the plan; 0 when there's none. */
 const unitBonusCents = z.number().int().min(0, "A unit bonus can't be negative").max(100_000_00);
 
@@ -26,6 +34,7 @@ const dealFields = z.object({
   vehicleType: z.enum(["new", "used"]),
   grossCents: cents,
   customerName,
+  customerPhone,
   vehicle,
   stockNumber: z.string().trim().max(200),
   /** Sold at an affiliated Germain store; it still pays on this store's plan. */
@@ -71,6 +80,7 @@ function clearUnset<T extends DependentFields>(d: T): T {
 
 export const dealBody = dealFields
   .extend({
+    customerPhone: customerPhone.default(""),
     stockNumber: dealFields.shape.stockNumber.default(""),
     affiliateStore: dealFields.shape.affiliateStore.default(false),
     affiliateStoreName: dealFields.shape.affiliateStoreName.default(""),
