@@ -15,7 +15,7 @@ function deal(vehicleType: "new" | "used", grossDollars: number, extra: Partial<
     vehicleType,
     grossCents: grossDollars * 100,
     splitPct: null,
-    splitCountsForVolume: true,
+    splitUnit: "mine",
     unitBonusCents: 0,
     unitBonusShared: false,
     ...extra,
@@ -145,26 +145,41 @@ describe("split deals", () => {
   });
 
   test("an unsplit deal keeps everything and always counts toward volume", () => {
-    const line = dealCommission(plan, deal("new", 3000, { splitCountsForVolume: false }), HIRE, NO_DPB);
+    const line = dealCommission(plan, deal("new", 3000, { splitUnit: "theirs" }), HIRE, NO_DPB);
     expect(line.splitCents).toBe(0);
     expect(line.commissionCents).toBe(line.fullCommissionCents);
-    expect(line.countsForVolume).toBe(true);
+    expect(line.volumeUnits).toBe(1);
   });
 
-  test("a split deal counts toward volume only when the salesperson says so", () => {
-    const deals = [...Array.from({ length: 12 }, () => deal("new", 3000)), deal("used", 2500, { splitPct: 50, splitCountsForVolume: true })];
-    const base = { month: "2026-06", hireDate: HIRE, deals, acquisitions: [], spiffCents: [], dpb: NO_DPB, drawOverrideCents: null };
+  test("a split deal counts as the salesperson chose: a whole unit, half a unit, or none", () => {
+    const split = (splitUnit: DealInput["splitUnit"]) => deal("used", 2500, { splitPct: 50, splitUnit });
+    const twelve = Array.from({ length: 12 }, () => deal("new", 3000));
+    const month = (deals: DealInput[]) => monthSummary({ month: "2026-06", hireDate: HIRE, deals, acquisitions: [], spiffCents: [], dpb: NO_DPB, drawOverrideCents: null });
 
-    const counted = monthSummary(base);
-    expect(counted.units).toEqual({ new: 12, used: 1, total: 13 });
-    expect(counted.volume.bonusCents).toBe(500_00);
-    expect(counted.commissionCents).toBe(12 * 480_00 + 225_00);
+    const mine = month([...twelve, split("mine")]);
+    expect(mine.deals.at(-1)!.volumeUnits).toBe(1);
+    expect(mine.units).toEqual({ new: 12, used: 1, total: 13 });
+    expect(mine.volume.bonusCents).toBe(500_00);
+    expect(mine.commissionCents).toBe(12 * 480_00 + 225_00);
 
-    const notCounted = monthSummary({ ...base, deals: deals.map((d) => (d.splitPct ? { ...d, splitCountsForVolume: false } : d)) });
-    expect(notCounted.units).toEqual({ new: 12, used: 0, total: 12 });
-    expect(notCounted.volume.bonusCents).toBe(0);
-    // Still paid its share, just not counted as a unit.
-    expect(notCounted.commissionCents).toBe(12 * 480_00 + 225_00);
+    const half = month([...twelve, split("half")]);
+    expect(half.units).toEqual({ new: 12, used: 0.5, total: 12.5 });
+    expect(half.volume.bonusCents).toBe(0);
+    expect(half.volume.next).toEqual({ units: 13, bonusCents: 500_00, unitsToGo: 0.5 });
+
+    const theirs = month([...twelve, split("theirs")]);
+    expect(theirs.units).toEqual({ new: 12, used: 0, total: 12 });
+    expect(theirs.volume.bonusCents).toBe(0);
+    // Paid its share every time; only the units change.
+    expect(half.commissionCents).toBe(mine.commissionCents);
+    expect(theirs.commissionCents).toBe(mine.commissionCents);
+  });
+
+  test("two half units make a whole one toward a milestone", () => {
+    const deals = [...Array.from({ length: 12 }, () => deal("new", 3000)), ...Array.from({ length: 2 }, () => deal("new", 3000, { splitPct: 50, splitUnit: "half" }))];
+    const s = monthSummary({ month: "2026-06", hireDate: HIRE, deals, acquisitions: [], spiffCents: [], dpb: NO_DPB, drawOverrideCents: null });
+    expect(s.units).toEqual({ new: 13, used: 0, total: 13 });
+    expect(s.volume.bonusCents).toBe(500_00);
   });
 });
 

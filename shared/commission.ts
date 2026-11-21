@@ -4,6 +4,13 @@
 import { addDays, daysBetween, fullYearsBetween, monthStart, nextMonth, weekdaysInMonth } from "./dates.ts";
 import { planForDate, type PayPlan, type VehicleType } from "./payplan.ts";
 
+/** On a split deal, whose volume count the car adds to. */
+export const SPLIT_UNITS = ["mine", "half", "theirs"] as const;
+export type SplitUnit = (typeof SPLIT_UNITS)[number];
+
+/** How much of the car counts toward this salesperson's volume bonus for each choice. */
+const SPLIT_UNIT_SHARE: Record<SplitUnit, number> = { mine: 1, half: 0.5, theirs: 0 };
+
 export interface DealInput {
   id: number;
   soldOn: string;
@@ -11,8 +18,8 @@ export interface DealInput {
   grossCents: number;
   /** Split with another salesperson: the whole percent of the commission that goes to them. Null when not split. */
   splitPct: number | null;
-  /** Whether a split deal still counts toward the volume bonus. An unsplit deal always does. */
-  splitCountsForVolume: boolean;
+  /** On a split deal, whether the car counts toward this salesperson's volume as a whole unit, half a unit or not at all. An unsplit deal always counts whole. */
+  splitUnit: SplitUnit;
   /** A one-off bonus for this particular car, the whole amount; 0 when there's none. */
   unitBonusCents: number;
   /** On a split deal, whether the unit bonus was for both salespeople (then it's split too) or all this salesperson's. */
@@ -54,7 +61,8 @@ export interface DealLine {
   unitBonusSplitCents: number;
   /** Everything this deal pays this salesperson: commission plus their part of the unit bonus. */
   payCents: number;
-  countsForVolume: boolean;
+  /** How much of a unit this deal adds toward the volume bonus: 1, or 0.5 or 0 on a split deal. */
+  volumeUnits: number;
 }
 
 export function tenureAddPct(plan: PayPlan, hireDate: string, on: string): number {
@@ -88,7 +96,7 @@ export function dealCommission(plan: PayPlan, deal: DealInput, hireDate: string,
     unitBonusCents: keptBonusCents,
     unitBonusSplitCents: deal.unitBonusCents - keptBonusCents,
     payCents: keptCents + keptBonusCents,
-    countsForVolume: deal.splitPct === null || deal.splitCountsForVolume,
+    volumeUnits: deal.splitPct === null ? 1 : SPLIT_UNIT_SHARE[deal.splitUnit],
   };
 }
 
@@ -158,12 +166,11 @@ export function monthSummary(input: MonthInput) {
     .sort((a, b) => a.soldOn.localeCompare(b.soldOn) || a.id - b.id)
     .map((d) => dealCommission(plan, d, input.hireDate, input.dpb));
 
-  // Split deals the salesperson chose not to count are left out of the units.
-  const counted = deals.filter((d) => d.countsForVolume);
+  // A split deal adds the part of the unit the salesperson chose (all, half or none), so units can end in .5.
   const units = {
-    new: counted.filter((d) => d.vehicleType === "new").length,
-    used: counted.filter((d) => d.vehicleType === "used").length,
-    total: counted.length,
+    new: sum(deals.filter((d) => d.vehicleType === "new").map((d) => d.volumeUnits)),
+    used: sum(deals.filter((d) => d.vehicleType === "used").map((d) => d.volumeUnits)),
+    total: sum(deals.map((d) => d.volumeUnits)),
   };
 
   const commissionCents = sum(deals.map((d) => d.commissionCents));

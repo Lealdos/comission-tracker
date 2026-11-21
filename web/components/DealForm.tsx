@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { dealCommission, formatCents, parseDollars, type DealLine, type DpbSetting } from "../../shared/commission.ts";
+import { dealCommission, formatCents, parseDollars, type DealLine, type DpbSetting, type SplitUnit } from "../../shared/commission.ts";
 import { planForDate, type VehicleType } from "../../shared/payplan.ts";
 import { PHONE_PATTERN } from "../../shared/phone.ts";
 import { api, type Acquisition, type Deal } from "../api.ts";
@@ -92,7 +92,8 @@ type Draft = {
   splitWith: string;
   /** The other salesperson's share, as typed. */
   splitPct: string;
-  splitCountsForVolume: boolean;
+  /** Whose volume count the car adds to: all mine, half a unit, or the other salesperson's. */
+  splitUnit: SplitUnit;
   unitBonus: boolean;
   /** The unit bonus, as typed. */
   unitBonusAmount: string;
@@ -101,7 +102,7 @@ type Draft = {
   notes: string;
 };
 
-const SPLIT_DEFAULTS = { split: false, splitWith: "", splitPct: "50", splitCountsForVolume: true, unitBonusShared: false };
+const SPLIT_DEFAULTS = { split: false, splitWith: "", splitPct: "50", splitUnit: "mine", unitBonusShared: false } satisfies Partial<Draft>;
 
 function blankDraft(soldOn: string): Draft {
   return { soldOn, gross: "", customerName: "", customerPhone: "", vehicle: "", stockNumber: "", affiliateStore: false, affiliateStoreName: "", ...SPLIT_DEFAULTS, unitBonus: false, unitBonusAmount: "", notes: "" };
@@ -118,7 +119,7 @@ function draftFromDeal(d: Deal): Draft {
     stockNumber: d.stockNumber,
     affiliateStore: d.affiliateStore,
     affiliateStoreName: d.affiliateStoreName,
-    ...(d.splitPct === null ? SPLIT_DEFAULTS : { split: true, splitWith: d.splitWith, splitPct: String(d.splitPct), splitCountsForVolume: d.splitCountsForVolume, unitBonusShared: d.unitBonusShared }),
+    ...(d.splitPct === null ? SPLIT_DEFAULTS : { split: true, splitWith: d.splitWith, splitPct: String(d.splitPct), splitUnit: d.splitUnit, unitBonusShared: d.unitBonusShared }),
     unitBonus: d.unitBonusCents > 0,
     unitBonusAmount: d.unitBonusCents > 0 ? (d.unitBonusCents / 100).toFixed(2) : "",
     notes: d.notes,
@@ -148,7 +149,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
             vehicleType,
             grossCents,
             splitPct,
-            splitCountsForVolume: draft.splitCountsForVolume,
+            splitUnit: draft.splitUnit,
             unitBonusCents: unitBonusCents ?? 0,
             unitBonusShared,
           },
@@ -174,7 +175,7 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
         affiliateStoreName: draft.affiliateStore ? draft.affiliateStoreName : "",
         splitPct,
         splitWith: draft.split ? draft.splitWith : "",
-        splitCountsForVolume: draft.split ? draft.splitCountsForVolume : true,
+        splitUnit: draft.split ? draft.splitUnit : "mine",
         unitBonusCents: unitBonusCents!,
         unitBonusShared,
         notes: draft.notes,
@@ -261,13 +262,13 @@ function DealForm({ vehicleType, defaultDate, hireDate, dpb, editing, onDone }: 
             <PercentInput required placeholder="50" maxLength={3} value={draft.splitPct} onChange={(e) => set("splitPct", e.target.value)} aria-invalid={splitPct === null || undefined} />
           </Field>
           {splitPct === null && <p className="col-span-6 -mt-2 text-xs text-destructive">Enter a whole percent from 1 to 99.</p>}
-          <label className="col-span-6 flex items-start gap-3 text-sm">
-            <Checkbox className="mt-0.5" checked={draft.splitCountsForVolume} onCheckedChange={(v) => set("splitCountsForVolume", v === true)} />
-            <span>
-              Count this car toward my volume bonus
-              <span className="block text-xs text-muted-foreground">Turn off if the unit goes to the other salesperson.</span>
-            </span>
-          </label>
+          <Field label="This car counts toward" className="col-span-6" hint="Units for the volume bonus.">
+            <NativeSelect value={draft.splitUnit} onChange={(e) => set("splitUnit", e.target.value as SplitUnit)}>
+              <option value="mine">My volume: a whole unit</option>
+              <option value="half">My volume: half a unit</option>
+              <option value="theirs">{draft.splitWith.trim() ? `${draft.splitWith.trim()}'s` : "The other salesperson's"} volume, not mine</option>
+            </NativeSelect>
+          </Field>
           {draft.unitBonus && (
             <label className="col-span-6 flex items-start gap-3 text-sm">
               <Checkbox className="mt-0.5" checked={draft.unitBonusShared} onCheckedChange={(v) => set("unitBonusShared", v === true)} />
