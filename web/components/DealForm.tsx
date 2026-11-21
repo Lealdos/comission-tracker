@@ -448,9 +448,9 @@ function DealForm({
                         </p>
                     )}
                     <Field
-                        label='This car counts toward'
+                        label='This car counts as'
                         className='col-span-6'
-                        hint='Units for the volume bonus.'
+                        hint='Units toward your volume bonus.'
                     >
                         <NativeSelect
                             value={draft.splitUnit}
@@ -458,13 +458,12 @@ function DealForm({
                                 set('splitUnit', e.target.value as SplitUnit)
                             }
                         >
-                            <option value='mine'> a whole unit</option>
-                            <option value='half'>half a unit</option>
+                            <option value='mine'>A whole unit</option>
+                            <option value='half'>Half a unit</option>
                             <option value='theirs'>
-                                {draft.splitWith.trim()
-                                    ? `${draft.splitWith.trim()}'s`
-                                    : "The other salesperson's"}{' '}
-                                volume, not mine
+                                No unit: it goes to{' '}
+                                {draft.splitWith.trim() ||
+                                    'the other salesperson'}
                             </option>
                         </NativeSelect>
                     </Field>
