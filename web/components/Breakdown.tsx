@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { formatCents, type MonthSummary } from "../../shared/commission.ts";
-import { formatDate } from "../format.ts";
+import { formatDate, formatUnits, unitsWord } from "../format.ts";
 import { Money } from "./common.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card.tsx";
 
@@ -55,7 +55,7 @@ export function Breakdown({ summary: s, className }: { summary: MonthSummary; cl
         <div className="grid text-sm lg:grid-cols-[19rem_minmax(0,1fr)] lg:gap-x-18 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <div className="border-b pb-1.5 lg:border-0 lg:pb-0">
             <Row label="Commission" detail={commissionDetail} cents={s.commissionCents} />
-            <Row label="Volume bonus" detail={`${s.units.total} units`} cents={s.volume.bonusCents} />
+            <Row label="Volume bonus" detail={`${formatUnits(s.units.total)} ${unitsWord(s.units.total)}`} cents={s.volume.bonusCents} />
             <Row label="Cars bought" detail={`${s.acquisitions.count} × ${formatCents(s.acquisitions.perCarCents, { whole: true })}`} cents={s.acquisitions.bonusCents} />
             {s.unitBonuses.totalCents > 0 && <Row label="Unit bonuses" detail={unitBonusDetail(s.unitBonuses)} cents={s.unitBonuses.totalCents} />}
             <Row label="Spiffs & incentives" cents={s.spiffsCents} />
