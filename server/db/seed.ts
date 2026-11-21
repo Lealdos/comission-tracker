@@ -119,7 +119,7 @@ await prisma.user.create({
           stockNumber: "H6177",
           splitPct: 50,
           splitWith: "Chris Dalton",
-          splitCountsForVolume: false,
+          splitUnit: "theirs",
           unitBonusCents: 200_00,
           unitBonusShared: true,
         },

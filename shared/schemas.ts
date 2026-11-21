@@ -1,6 +1,7 @@
 // Request bodies, shared so the API validates exactly what the web forms send.
 
 import { z } from "zod";
+import { SPLIT_UNITS } from "./commission.ts";
 import { formatPhone, isPhone } from "./phone.ts";
 
 const isoDate = z.iso.date();
@@ -44,7 +45,8 @@ const dealFields = z.object({
   /** Whole percent of the commission that goes to the other salesperson; null when the deal isn't split. */
   splitPct: z.number().int().min(1, "A split gives away 1% to 99%").max(99, "A split gives away 1% to 99%").nullable(),
   splitWith: z.string().trim().max(200),
-  splitCountsForVolume: z.boolean(),
+  /** On a split deal, whether the car counts toward this salesperson's volume whole, as half a unit, or goes to the other salesperson. */
+  splitUnit: z.enum(SPLIT_UNITS),
   unitBonusCents,
   /** On a split deal, whether the unit bonus was for both salespeople, so the split percent comes off it too. */
   unitBonusShared: z.boolean(),
@@ -56,7 +58,7 @@ type DependentFields = {
   affiliateStoreName?: string;
   splitPct?: number | null;
   splitWith?: string;
-  splitCountsForVolume?: boolean;
+  splitUnit?: (typeof SPLIT_UNITS)[number];
   unitBonusCents?: number;
   unitBonusShared?: boolean;
 };
@@ -73,7 +75,7 @@ const partnerMissing = { path: ["splitWith"], message: "Enter who you split the 
 function clearUnset<T extends DependentFields>(d: T): T {
   let out = d;
   if (out.affiliateStore === false) out = { ...out, affiliateStoreName: "" };
-  if (out.splitPct === null) out = { ...out, splitWith: "", splitCountsForVolume: true, unitBonusShared: false };
+  if (out.splitPct === null) out = { ...out, splitWith: "", splitUnit: "mine", unitBonusShared: false };
   if (out.unitBonusCents === 0) out = { ...out, unitBonusShared: false };
   return out;
 }
@@ -86,7 +88,7 @@ export const dealBody = dealFields
     affiliateStoreName: dealFields.shape.affiliateStoreName.default(""),
     splitPct: dealFields.shape.splitPct.default(null),
     splitWith: dealFields.shape.splitWith.default(""),
-    splitCountsForVolume: dealFields.shape.splitCountsForVolume.default(true),
+    splitUnit: dealFields.shape.splitUnit.default("mine"),
     unitBonusCents: unitBonusCents.default(0),
     unitBonusShared: dealFields.shape.unitBonusShared.default(false),
     notes: dealFields.shape.notes.default(""),

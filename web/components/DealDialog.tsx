@@ -119,7 +119,9 @@ function DealDetails({ deal, line, onEdit, onDeleted }: { deal: Deal; line: Deal
           <Item label="Split" wide>
             {deal.splitPct}% to {deal.splitWith}
             {line && <span className="text-muted-foreground"> ({formatCents(line.splitCents)})</span>}
-            <span className="block text-muted-foreground">{deal.splitCountsForVolume ? "Counts toward your volume" : "Not counted toward your volume"}</span>
+            <span className="block text-muted-foreground">
+              {deal.splitUnit === "mine" ? "A whole unit toward your volume" : deal.splitUnit === "half" ? "Half a unit toward your volume" : `The unit goes to ${deal.splitWith || "them"}, not counted toward your volume`}
+            </span>
           </Item>
         )}
         <Item label="Notes" wide>

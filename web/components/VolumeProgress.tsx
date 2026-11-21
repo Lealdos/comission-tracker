@@ -18,7 +18,7 @@ function tiers(milestones: Milestone[]) {
 
 export function VolumeProgress({ summary }: { summary: MonthSummary }) {
   const { units, volume } = summary;
-  const uncounted = summary.deals.filter((d) => !d.countsForVolume).length;
+  const uncounted = summary.deals.filter((d) => d.volumeUnits === 0).length;
   const top = volume.milestones.at(-1)!.units;
   const atMilestone = new Set(volume.milestones.map((m) => m.units));
   // One slot per unit up to the last milestone; milestone slots stand taller, like posts on the board.

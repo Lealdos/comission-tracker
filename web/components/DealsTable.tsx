@@ -149,7 +149,9 @@ export function DealsTable({
                                             {deal.splitPct}% to {deal.splitWith}
                                             {deal.unitBonusShared &&
                                                 ', bonus shared'}
-                                            {!deal.splitCountsForVolume &&
+                                            {deal.splitUnit === 'half' &&
+                                                ', half a unit'}
+                                            {deal.splitUnit === 'theirs' &&
                                                 ', not counted toward volume'}
                                         </div>
                                     )}

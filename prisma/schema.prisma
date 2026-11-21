@@ -19,6 +19,15 @@ enum VehicleType {
   @@map("vehicle_type")
 }
 
+/// On a split deal, whose volume count the car adds to: all this salesperson's, half a unit each, or all the other salesperson's.
+enum SplitUnit {
+  mine
+  half
+  theirs
+
+  @@map("split_unit")
+}
+
 enum AcquisitionSource {
   off_street
   service_drive
@@ -64,8 +73,9 @@ model Deal {
   splitPct             Int?        @map("split_pct")
   /// Who the deal was split with; "" when it wasn't.
   splitWith            String      @default("") @map("split_with")
-  /// Whether a split deal still counts as a unit toward the volume bonus (the salesperson's choice per deal).
-  splitCountsForVolume Boolean     @default(true) @map("split_counts_for_volume")
+  /// On a split deal, how much of the unit counts toward this salesperson's volume bonus (their choice per deal):
+  /// `mine` 1, `half` 0.5, `theirs` 0. An unsplit deal always counts as 1 and keeps `mine`.
+  splitUnit            SplitUnit   @default(mine) @map("split_unit")
   /// A one-off bonus for this particular car (aged unit, manufacturer), the whole amount: paid on top of the commission,
   /// not run through the rate or the minimum. 0 when there's none.
   unitBonusCents       Int         @default(0) @map("unit_bonus_cents")
