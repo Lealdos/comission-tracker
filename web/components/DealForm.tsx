@@ -382,7 +382,7 @@ function DealForm({
                     onCheckedChange={(v) => set('affiliateStore', v === true)}
                 />
                 <span>
-                    Sold at an affiliated Germain store
+                    <span>Sold at an affiliated Germain store</span>
                     <span className='block text-xs text-muted-foreground'>
                         Paid on your plan and counted toward your volume, like
                         any other deal.
@@ -414,7 +414,7 @@ function DealForm({
                     onCheckedChange={(v) => set('split', v === true)}
                 />
                 <span>
-                    Split with another salesperson
+                    <span>Split with another salesperson</span>
                     <span className='block text-xs text-muted-foreground'>
                         Their share comes off this deal's commission.
                     </span>
@@ -458,10 +458,8 @@ function DealForm({
                                 set('splitUnit', e.target.value as SplitUnit)
                             }
                         >
-                            <option value='mine'>
-                                My volume: a whole unit
-                            </option>
-                            <option value='half'>My volume: half a unit</option>
+                            <option value='mine'> a whole unit</option>
+                            <option value='half'>half a unit</option>
                             <option value='theirs'>
                                 {draft.splitWith.trim()
                                     ? `${draft.splitWith.trim()}'s`
@@ -480,7 +478,7 @@ function DealForm({
                                 }
                             />
                             <span>
-                                The unit bonus is for both of us
+                                <span>The unit bonus is for both of us</span>
                                 <span className='block text-xs text-muted-foreground'>
                                     On: their share comes off the bonus too.
                                     Off: the whole bonus is yours.
@@ -586,7 +584,7 @@ function UnitBonusFields({
                     onCheckedChange={(v) => onCheckedChange(v === true)}
                 />
                 <span>
-                    This car has a unit bonus
+                    <span>This car has a unit bonus</span>
                     <span className='block text-xs text-muted-foreground'>
                         A one-off bonus on this car, paid on top of what the
                         plan pays.
