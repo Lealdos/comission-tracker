@@ -15,6 +15,16 @@ export function formatMonth(month: string): string {
 
 export const SOURCE_LABEL = { service_drive: "Service drive", off_street: "Off-street" } as const;
 
+/** A count of volume units, which can end in a half from split deals: "12", "12.5". */
+export function formatUnits(units: number): string {
+  return units.toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+
+/** "unit" or "units" for a count of volume units. */
+export function unitsWord(units: number): string {
+  return units === 1 ? "unit" : "units";
+}
+
 /** Small pill tones used across lists: sale type, affiliate, minimum applied, missing details. */
 export const tone = {
   positive: "border-transparent bg-positive-soft text-positive",

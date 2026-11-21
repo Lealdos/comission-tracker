@@ -1,5 +1,6 @@
 import type { MonthSummary } from "../../shared/commission.ts";
 import { Check } from "lucide-react";
+import { formatUnits, unitsWord } from "../format.ts";
 import { Money } from "./common.tsx";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "./ui/card.tsx";
 
@@ -18,6 +19,8 @@ function tiers(milestones: Milestone[]) {
 
 export function VolumeProgress({ summary }: { summary: MonthSummary }) {
   const { units, volume } = summary;
+  // Split deals that count as half a unit, and those whose unit went to the other salesperson.
+  const halves = summary.deals.filter((d) => d.volumeUnits === 0.5).length;
   const uncounted = summary.deals.filter((d) => d.volumeUnits === 0).length;
   const top = volume.milestones.at(-1)!.units;
   const atMilestone = new Set(volume.milestones.map((m) => m.units));
@@ -34,9 +37,10 @@ export function VolumeProgress({ summary }: { summary: MonthSummary }) {
       </CardHeader>
       <CardContent>
       <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-display text-4xl leading-none font-semibold tabular-nums">{units.total}</span>
+        <span className="font-display text-4xl leading-none font-semibold tabular-nums">{formatUnits(units.total)}</span>
         <span className="text-sm text-muted-foreground">
-          {units.total === 1 ? "unit" : "units"}: {units.new} new, {units.used} pre-owned
+          {unitsWord(units.total)}: {formatUnits(units.new)} new, {formatUnits(units.used)} pre-owned
+          {halves > 0 && `, with ${halves} split ${halves === 1 ? "deal" : "deals"} at half a unit`}
           {uncounted > 0 && `, plus ${uncounted} split ${uncounted === 1 ? "deal" : "deals"} not counted`}
         </span>
       </p>
@@ -44,7 +48,7 @@ export function VolumeProgress({ summary }: { summary: MonthSummary }) {
       <p className="mt-2 text-sm">
         {volume.next ? (
           <>
-            <strong>{volume.next.unitsToGo}</strong> more {volume.next.unitsToGo === 1 ? "unit" : "units"} to unlock{" "}
+            <strong>{formatUnits(volume.next.unitsToGo)}</strong> more {unitsWord(volume.next.unitsToGo)} to unlock{" "}
             <strong className="text-positive">
               +<Money cents={volume.next.bonusCents} whole />
             </strong>{" "}
@@ -60,12 +64,16 @@ export function VolumeProgress({ summary }: { summary: MonthSummary }) {
           {Array.from({ length: top }, (_, i) => {
             const n = i + 1;
             const filled = n <= units.total;
+            // A half unit from a split deal fills the left half of the next slot.
+            const half = !filled && n - 0.5 <= units.total;
             const milestone = atMilestone.has(n);
             return (
               <div
                 key={n}
-                className={`rounded-[3px] motion-safe:transition-colors motion-safe:duration-500 ${milestone ? "h-6" : "h-4"} ${filled ? "bg-primary" : milestone ? "bg-input" : "bg-border"}`}
-              />
+                className={`relative overflow-hidden rounded-[3px] motion-safe:transition-colors motion-safe:duration-500 ${milestone ? "h-6" : "h-4"} ${filled ? "bg-primary" : milestone ? "bg-input" : "bg-border"}`}
+              >
+                {half && <div className="absolute inset-y-0 left-0 w-1/2 bg-primary" />}
+              </div>
             );
           })}
         </div>
